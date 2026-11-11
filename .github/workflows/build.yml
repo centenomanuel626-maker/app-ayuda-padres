@@ -20,11 +20,24 @@ jobs:
         with:
           gradle-version: "8.9"
 
-      - name: Compilar
+      - name: Revisar el código
+        run: gradle compileReleaseKotlin --no-daemon
+
+      - name: Comprobar la llave de firma
+        env:
+          SIGNING_PASSWORD: ${{ secrets.SIGNING_PASSWORD }}
+        run: |
+          if [ -z "$SIGNING_PASSWORD" ]; then
+            echo "::error::Falta el secreto SIGNING_PASSWORD (Settings > Secrets and variables > Actions)."
+            exit 1
+          fi
+
+      - name: Compilar el APK firmado
         env:
           SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
           SUPABASE_ANON_KEY: ${{ secrets.SUPABASE_ANON_KEY }}
-        run: gradle assembleRelease --no-daemon --stacktrace
+          SIGNING_PASSWORD: ${{ secrets.SIGNING_PASSWORD }}
+        run: gradle assembleRelease --no-daemon
 
       - uses: actions/upload-artifact@v4
         with:

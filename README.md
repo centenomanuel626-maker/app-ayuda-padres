@@ -5,7 +5,7 @@ App Android con botones grandes para que mis padres resuelvan solos los problema
 - **Celular de los padres:** 4 categorías (Internet, Sonido y pantalla, Ayuda y Mi celular) con 29 botones. Abajo siempre están “Llamar a Manuel” y “Emergencia”. Tiene voz, comandos de voz, modo práctica, alarmas de medicinas, lupa, contactos con foto, alerta contra estafas, revisión de seguridad, quitar apps que no usan, vigilancia de instalaciones y modo pantalla de inicio.
 - **Celular de Manuel:** la misma app en modo “Mi panel”: batería, conexión, “Estoy bien”, resultado de seguridad, avisos y categorías visibles a distancia.
 
-> Mantén este repositorio **privado**: incluye la llave con la que se firma la app (`app/familia.keystore`).
+> La llave que firma la app (`app/familia.keystore`) está protegida con una contraseña que solo vive en el secreto `SIGNING_PASSWORD` de GitHub (Settings → Secrets and variables → Actions). Guarda esa contraseña en un lugar seguro: sin ella no se pueden publicar actualizaciones que se instalen encima.
 
 ## 1. Supabase (ya está listo)
 

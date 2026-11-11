@@ -41,9 +41,9 @@ android {
     signingConfigs {
         create("familia") {
             storeFile = file("familia.keystore")
-            storePassword = "s4fI16kDx1Qo4fIPyvMcLOjb"
+            storePassword = secret("SIGNING_PASSWORD")
             keyAlias = "familia"
-            keyPassword = "s4fI16kDx1Qo4fIPyvMcLOjb"
+            keyPassword = secret("SIGNING_PASSWORD")
         }
     }
 

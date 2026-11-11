@@ -10,6 +10,7 @@ create or replace function public.request_family_code()
 returns text
 language sql
 stable
+set search_path = public
 as $$
   select coalesce(
     (current_setting('request.headers', true)::json ->> 'x-family-code'),
@@ -92,6 +93,7 @@ create or replace function public.resolve_alert(alert_id bigint)
 returns void
 language sql
 security invoker
+set search_path = public
 as $$
   update public.alerts set resolved = true
    where id = alert_id and family_code = public.request_family_code();
@@ -101,6 +103,7 @@ create or replace function public.set_hidden_categories(target_device text, cats
 returns void
 language sql
 security invoker
+set search_path = public
 as $$
   update public.devices set hidden_categories = cats
    where id = target_device and family_code = public.request_family_code();
@@ -109,3 +112,4 @@ $$;
 grant execute on function public.resolve_alert(bigint) to anon;
 grant execute on function public.set_hidden_categories(text, text[]) to anon;
 grant execute on function public.request_family_code() to anon;
+revoke execute on function public.alerts_after_insert() from public, anon, authenticated;

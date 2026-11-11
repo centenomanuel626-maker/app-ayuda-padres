@@ -7,25 +7,16 @@ App Android con botones grandes para que mis padres resuelvan solos los problema
 
 > Mantén este repositorio **privado**: incluye la llave con la que se firma la app (`app/familia.keystore`).
 
-## 1. Preparar Supabase (una vez)
+## 1. Supabase (ya está listo)
 
-1. Entra a [supabase.com](https://supabase.com) y abre tu proyecto (o crea uno).
-2. Ve a **SQL Editor → New query**, pega todo el archivo `supabase/schema.sql` y toca **Run**.
-3. Ve a **Project Settings → API** y copia:
-   - **Project URL** (algo como `https://abcd.supabase.co`)
-   - **anon public key**
+El proyecto **Ayuda Padres** (`shbhfmkwphfofnijhxgd`) ya tiene las tablas y las reglas de seguridad de `supabase/schema.sql`, y la app ya trae su dirección y su clave pública. No hay que hacer nada.
 
-Sin Supabase la app también funciona, pero sin panel ni avisos: “Estoy bien” y “Emergencia” se envían por WhatsApp.
+Para usar otro proyecto, pega `supabase/schema.sql` en su **SQL Editor** y crea en GitHub los secretos `SUPABASE_URL` y `SUPABASE_ANON_KEY` (Settings → Secrets and variables → Actions).
 
 ## 2. Compilar el APK en GitHub
 
-1. En el repositorio: **Settings → Secrets and variables → Actions → New repository secret**. Crea dos:
-   - `SUPABASE_URL` con la Project URL
-   - `SUPABASE_ANON_KEY` con la anon public key
-2. Ve a **Actions → Compilar APK → Run workflow**.
-3. Cuando termine (unos 5 minutos), abre la ejecución y descarga **app-ayuda-padres**. Dentro está `app-release.apk`.
-
-Cada vez que se sube un cambio a `main`, se compila solo.
+1. Ve a **Actions → Compilar APK → Run workflow** (también se compila solo con cada cambio en `main`).
+2. Cuando termine (unos 5 minutos), abre la ejecución y descarga **app-ayuda-padres**. Dentro está `app-release.apk`.
 
 ## 3. Instalar en tu celular (primero)
 

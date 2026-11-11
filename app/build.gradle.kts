@@ -3,7 +3,14 @@ plugins {
     id("org.jetbrains.kotlin.android")
 }
 
-// Datos de Supabase: se leen de variables de entorno (secretos de GitHub) o de local.properties.
+// Datos de Supabase del proyecto "Ayuda Padres". La clave anon es pública por diseño
+// (va dentro del APK); la seguridad la dan las reglas RLS y el código de familia.
+// Se pueden cambiar con variables de entorno (secretos de GitHub) o en local.properties.
+val defaults = mapOf(
+    "SUPABASE_URL" to "https://shbhfmkwphfofnijhxgd.supabase.co",
+    "SUPABASE_ANON_KEY" to "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InNoYmhmbWt3cGhmb2ZuaWpoeGdkIiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTQ0MjcxNDYsImV4cCI6MjExMDAwMzE0Nn0.EYeEioGuLQKcxJJBs4pZ13M2XBv43o9Up1QkdPtjMks"
+)
+
 fun secret(name: String): String {
     val fromEnv = System.getenv(name)
     if (!fromEnv.isNullOrBlank()) return fromEnv
@@ -11,9 +18,10 @@ fun secret(name: String): String {
     if (f.exists()) {
         val p = java.util.Properties()
         f.inputStream().use { p.load(it) }
-        return p.getProperty(name, "")
+        val v = p.getProperty(name, "")
+        if (v.isNotBlank()) return v
     }
-    return ""
+    return defaults[name] ?: ""
 }
 
 android {

@@ -5,6 +5,9 @@ on:
     branches: [main]
   workflow_dispatch:
 
+permissions:
+  contents: write
+
 jobs:
   build:
     runs-on: ubuntu-latest
@@ -39,7 +42,22 @@ jobs:
           SIGNING_PASSWORD: ${{ secrets.SIGNING_PASSWORD }}
         run: gradle assembleRelease --no-daemon
 
+      - name: Nombrar el APK
+        run: cp app/build/outputs/apk/release/app-release.apk app-ayuda-padres.apk
+
       - uses: actions/upload-artifact@v4
         with:
           name: app-ayuda-padres
-          path: app/build/outputs/apk/release/app-release.apk
+          path: app-ayuda-padres.apk
+
+      # Publica cada versión con un enlace fijo para mandar por WhatsApp:
+      # https://github.com/<usuario>/app-ayuda-padres/releases/latest/download/app-ayuda-padres.apk
+      - name: Publicar versión
+        if: github.ref == 'refs/heads/main'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release create "v1.0.${{ github.run_number }}" app-ayuda-padres.apk \
+            --title "Versión 1.0.${{ github.run_number }}" \
+            --notes "APK para instalar en los celulares de la familia." \
+            --latest

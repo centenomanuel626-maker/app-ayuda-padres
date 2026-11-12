@@ -26,8 +26,12 @@ class AlarmReceiver : BroadcastReceiver() {
             Alarms.ACTION_ESTOY_BIEN_RECORDAR -> {
                 Alarms.scheduleEstoyBien(ctx)
                 if (DateUtils.isToday(p.lastEstoyBien)) return
-                val send = Notif.pendingBroadcast(ctx, Ids.ESTOY_BIEN + 10,
-                    Intent(ctx, AlarmReceiver::class.java).setAction(Alarms.ACTION_ESTOY_BIEN_ENVIAR))
+                // Abre la app y envía el aviso desde ahí: así funciona también sin Supabase (por WhatsApp)
+                // y se ve la confirmación en pantalla grande.
+                val send = Notif.pendingActivity(ctx, Ids.ESTOY_BIEN + 10,
+                    Intent(ctx, MainActivity::class.java)
+                        .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP)
+                        .putExtra("run", "estoybien"))
                 Notif.show(ctx, Ids.ESTOY_BIEN, Notif.AVISOS, "¿Todo bien hoy?",
                     "Toca “Estoy bien” para avisarle a ${p.helperName}.",
                     actions = listOf("✅ Estoy bien" to send))

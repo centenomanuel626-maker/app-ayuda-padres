@@ -33,7 +33,7 @@ fun MainActivity.startTour() {
         Coach.Step("mic", "Toca el micrófono y dile a la app lo que necesitas. Por ejemplo: no tengo internet."),
         Coach.Step("dock:call", "Este botón verde llama a $h. Siempre está aquí abajo."),
         Coach.Step("dock:sos", "Este botón rojo es para emergencias. Le manda a $h dónde estás y lo llama."),
-        Coach.Step(null, "Nunca instales apps que te manden por mensaje, aunque digan que son de $h. Y tranquilo: con esta app no puedes dañar nada."),
+        Coach.Step(null, "Nunca instales apps que te manden por mensaje, aunque digan que son de $h. Y no te preocupes: con esta app no puedes dañar nada."),
         Coach.Step(null, "Si quieres repasar, entra a Ayuda y toca “Aprender a usar la app”. Ahí hay guías para cada cosa.")
     )
     coach = Coach(this, steps) {

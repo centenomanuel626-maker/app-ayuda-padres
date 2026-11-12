@@ -21,7 +21,7 @@ class SetupActivity : Activity() {
 
     private fun chooseRole() {
         val c = scrollPage()
-        c.addView(heading("Bienvenido"))
+        c.addView(heading("Hola"))
         c.addView(text("¿En qué celular estás instalando la app?", 22f), full())
         c.addView(rowButton("👵", "En el celular de mis padres", "Botones grandes para que se ayuden solos", Col.VERDE_AZUL) {
             parentSetup()

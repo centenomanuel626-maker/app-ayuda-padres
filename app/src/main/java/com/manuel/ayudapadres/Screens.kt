@@ -395,6 +395,7 @@ fun MainActivity.showTutorial(step: Int) {
         "📞" to "Abajo siempre están “Llamar a $h”, en verde, y “Emergencia”, en rojo.",
         "😌" to "No te preocupes: con esta app no puedes dañar nada. Si algo no funciona, llama a $h.",
         "🎤" to "Puedes hablarle a la app: toca el micrófono y di, por ejemplo, “no tengo internet”.",
+        "🚫" to "Nunca instales apps ni “actualizaciones” que te manden por mensaje, aunque digan que son de $h. $h las instala él mismo.",
         "🎓" to "Para practicar sin cambiar nada, prende el modo práctica. Los botones solo te dirán para qué sirven."
     )
     val s = step.coerceIn(0, pages.size - 1)

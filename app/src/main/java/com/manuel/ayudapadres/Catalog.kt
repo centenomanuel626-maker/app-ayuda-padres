@@ -12,7 +12,7 @@ object Catalog {
         Cat("sonido", "Sonido y pantalla", "🔊", Col.MORADO,
             listOf("ringer", "volumen", "letra", "notif", "brillo", "apagado", "girar")),
         Cat("ayuda", "Ayuda", "🤝", Col.VERDE_AZUL,
-            listOf("llamar", "familia", "video", "remoto", "olvide", "estoybien", "emergencia", "aprender")),
+            listOf("llamar", "pantalla", "familia", "video", "remoto", "olvide", "estoybien", "emergencia", "aprender")),
         Cat("celular", "Mi celular", "📱", Col.NARANJA,
             listOf("seguridad", "linterna", "lupa", "medicinas", "bateria", "quitar", "espacio", "clave", "updates", "lento"))
     )
@@ -36,6 +36,7 @@ object Catalog {
         "llamar" -> Btn(id, "📞", "Llamar a $helper", "Te llamo ahora mismo")
         "familia" -> Btn(id, "👨‍👩‍👧", "Mi familia", "Fotos grandes; tocas y llama")
         "video" -> Btn(id, "🎥", "Videollamada a la familia", "Abre WhatsApp con $helper")
+        "pantalla" -> Btn(id, "📲", "Mostrarle mi pantalla a $helper", "Videollamada de WhatsApp y compartir pantalla")
         "remoto" -> Btn(id, "🖥️", "Ayuda a distancia", "$helper entra a tu celular")
         "olvide" -> Btn(id, "🔑", "Olvidé una contraseña", "$helper te ayuda")
         "estoybien" -> Btn(id, "✅", "Estoy bien", "Avisa a $helper que todo está en orden")

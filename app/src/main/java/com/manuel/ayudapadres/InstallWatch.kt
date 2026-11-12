@@ -44,11 +44,11 @@ object InstallWatch {
             )
             val remove = Notif.pendingActivity(
                 ctx, Ids.newApp(pkg) + 1,
-                Intent(ctx, MainActivity::class.java).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK).putExtra("uninstall", pkg)
+                Intent(ctx, MainActivity::class.java).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK).putExtra("uninstall", pkg).putExtra("token", p.intentToken)
             )
             Notif.show(
                 ctx, Ids.newApp(pkg), Notif.URGENTE, "¿Tú instalaste “$label”?",
-                "Apareció una app nueva en tu celular. Si no la instalaste tú, quítala.",
+                "Apareció una app nueva en tu celular. Si no la instalaste tú, o te la mandaron por mensaje, quítala y avísale a ${p.helperName}.",
                 tap = remove,
                 actions = listOf("Sí, fui yo" to keep, "No, quitarla" to remove)
             )

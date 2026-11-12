@@ -31,7 +31,7 @@ class AlarmReceiver : BroadcastReceiver() {
                 val send = Notif.pendingActivity(ctx, Ids.ESTOY_BIEN + 10,
                     Intent(ctx, MainActivity::class.java)
                         .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP)
-                        .putExtra("run", "estoybien"))
+                        .putExtra("run", "estoybien").putExtra("token", p.intentToken))
                 Notif.show(ctx, Ids.ESTOY_BIEN, Notif.AVISOS, "¿Todo bien hoy?",
                     "Toca “Estoy bien” para avisarle a ${p.helperName}.",
                     actions = listOf("✅ Estoy bien" to send))

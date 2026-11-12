@@ -67,6 +67,14 @@ class MainActivity : Activity() {
 
     private fun handleIntent(i: Intent?) {
         if (i == null) return
+        // Solo se aceptan órdenes que vienen de los avisos de esta misma app (llevan la clave interna).
+        val token = i.getStringExtra("token")
+        i.removeExtra("token")
+        if (token == null || token != prefs.intentToken) {
+            i.removeExtra("uninstall")
+            i.removeExtra("run")
+            return
+        }
         i.getStringExtra("uninstall")?.let {
             i.removeExtra("uninstall")
             Notif.cancel(this, Ids.newApp(it))

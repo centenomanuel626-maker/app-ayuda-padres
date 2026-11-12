@@ -102,6 +102,25 @@ class Prefs(context: Context) {
         get() = str("estoyBienNotified")
         set(v) = putStr("estoyBienNotified", v)
 
+    /** Clave interna: solo los avisos de esta misma app pueden pedirle acciones a la pantalla principal. */
+    val intentToken: String
+        get() {
+            var t = p.getString("intentToken", null)
+            if (t == null) {
+                t = UUID.randomUUID().toString()
+                putStr("intentToken", t)
+            }
+            return t
+        }
+
+    var pinFails: Int
+        get() = p.getInt("pinFails", 0)
+        set(v) = p.edit().putInt("pinFails", v).apply()
+
+    var pinLockUntil: Long
+        get() = p.getLong("pinLockUntil", 0L)
+        set(v) = p.edit().putLong("pinLockUntil", v).apply()
+
     var lastSecurity: String
         get() = str("lastSecurity")
         set(v) = putStr("lastSecurity", v)

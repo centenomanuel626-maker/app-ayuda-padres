@@ -144,6 +144,7 @@ class Acciones(private val a: MainActivity) {
                 if (!whatsapp(p.helperPhone, null)) a.say("No encontré WhatsApp en este celular.", "warn")
             }
             "remoto" -> remote()
+            "pantalla" -> shareScreen()
             "estoybien" -> estoyBien()
             "emergencia" -> confirmEmergency()
             "aprender" -> a.showTutorial(0)
@@ -334,7 +335,83 @@ class Acciones(private val a: MainActivity) {
 
     // ---------------- Ayuda ----------------
 
+    /** Antes de abrir AnyDesk pregunta con quién habla: es la herramienta favorita de los estafadores. */
     private fun remote() {
+        Speaker.say(a, "¿Estás hablando con $helper ahora mismo?")
+        a.sheet { c, d ->
+            c.addView(a.heading("¿Estás hablando con $helper ahora mismo?"))
+            c.addView(a.text("El número de AnyDesk solo se le da a $helper. Los bancos, la compañía de teléfono o el técnico nunca te lo piden: si alguien te lo pide, es una estafa.", 20f))
+            c.addView(a.bigButton("Sí, estoy hablando con $helper", Col.VERDE) {
+                d.dismiss()
+                if (Cloud.configured(a)) Thread { Cloud.alert(a.applicationContext, "info", "Abrió “Ayuda a distancia” (AnyDesk).") }.start()
+                openAnyDesk()
+            }, a.full())
+            c.addView(a.bigButton("No, me lo pidió otra persona", Col.ROJO) {
+                d.dismiss()
+                a.say("No le des ningún número. Cuelga y llama a $helper.", "warn")
+                if (Cloud.configured(a)) Thread { Cloud.alert(a.applicationContext, "bad", "Alguien le pidió abrir AnyDesk y dijo que NO era $helper. Posible estafa: llámale.") }.start()
+            }, a.full())
+            c.addView(a.bigButton("Primero llamar a $helper", Col.BLANCO, Col.TINTA) {
+                d.dismiss()
+                call(p.helperPhone, helper)
+            }, a.full())
+        }
+    }
+
+    /** Videollamada de WhatsApp directa a Manuel y guía para compartir la pantalla completa. */
+    private fun shareScreen() {
+        val steps = "Cuando $helper conteste: toca la pantalla, toca el botón de compartir pantalla, el de la flecha, " +
+            "elige “Pantalla completa” y toca “Iniciar”."
+        a.sheet { c, d ->
+            c.addView(a.heading("Mostrarle tu pantalla a $helper"))
+            c.addView(a.text("1. Te llamo por videollamada de WhatsApp.\n2. Cuando conteste, toca la pantalla.\n3. Toca el botón de compartir pantalla (📲 la flecha).\n4. Elige “Pantalla completa” y toca “Iniciar”.", 21f))
+            c.addView(a.bigButton("Llamar a $helper y compartir", Col.VERDE) {
+                d.dismiss()
+                Toast.makeText(a, steps, Toast.LENGTH_LONG).show()
+                Speaker.say(a, steps)
+                if (!whatsappVideoCall(p.helperPhone)) {
+                    guide("Toca el dibujo de la cámara arriba a la derecha para la videollamada.")
+                    if (!whatsapp(p.helperPhone, null)) a.say("No encontré WhatsApp en este celular.", "warn")
+                }
+            }, a.full())
+            c.addView(a.bigButton("Cancelar", Col.BLANCO, Col.TINTA) { d.dismiss() }, a.full())
+        }
+    }
+
+    /**
+     * Abre la videollamada de WhatsApp directamente. Busca el contacto de Manuel en los contactos
+     * del celular (WhatsApp agrega una fila de "videollamada" por cada contacto que lo usa).
+     */
+    private fun whatsappVideoCall(number: String): Boolean {
+        if (a.checkSelfPermission(Manifest.permission.READ_CONTACTS) != PackageManager.PERMISSION_GRANTED) return false
+        val digits = number.filter { it.isDigit() }
+        if (digits.length < 7) return false
+        val tail = digits.takeLast(10)
+        for (pkg in listOf("com.whatsapp", "com.whatsapp.w4b")) {
+            if (!installed(pkg)) continue
+            val mime = if (pkg == "com.whatsapp") "vnd.android.cursor.item/vnd.com.whatsapp.video.call"
+                       else "vnd.android.cursor.item/vnd.com.whatsapp.w4b.video.call"
+            try {
+                a.contentResolver.query(
+                    android.provider.ContactsContract.Data.CONTENT_URI,
+                    arrayOf("_id", "data1"),
+                    "mimetype = ?", arrayOf(mime), null
+                )?.use { cur ->
+                    while (cur.moveToNext()) {
+                        val data1 = (cur.getString(1) ?: "").filter { it.isDigit() }
+                        if (data1.endsWith(tail)) {
+                            val uri = Uri.parse("content://com.android.contacts/data/" + cur.getLong(0))
+                            a.startActivity(Intent(Intent.ACTION_VIEW).setDataAndType(uri, mime).setPackage(pkg))
+                            return true
+                        }
+                    }
+                }
+            } catch (e: Exception) { }
+        }
+        return false
+    }
+
+    private fun openAnyDesk() {
         val pkg = "com.anydesk.anydeskandroid"
         val li = a.packageManager.getLaunchIntentForPackage(pkg)
         if (li != null) {
@@ -511,6 +588,11 @@ class Acciones(private val a: MainActivity) {
     /** Pide el PIN; si todavía no hay uno, obliga a crearlo. */
     fun askPin(titleText: String, onOk: () -> Unit) {
         val creating = p.pin.isEmpty()
+        val wait = p.pinLockUntil - System.currentTimeMillis()
+        if (!creating && wait > 0) {
+            a.say("Demasiados intentos. Espera ${wait / 60000 + 1} minuto(s).", "warn")
+            return
+        }
         a.sheet { c, d ->
             c.addView(a.heading(titleText))
             c.addView(a.text(if (creating) "Crea un PIN de al menos 4 números. Solo $helper debe saberlo." else "Solo para $helper. Escribe el PIN.", 20f))
@@ -529,12 +611,24 @@ class Acciones(private val a: MainActivity) {
                         onOk()
                     }
                     t == p.pin -> {
+                        p.pinFails = 0
                         d.dismiss()
                         onOk()
                     }
                     else -> {
+                        p.pinFails = p.pinFails + 1
                         pin.setText("")
-                        pin.hint = "PIN equivocado"
+                        if (p.pinFails >= 5) {
+                            p.pinFails = 0
+                            p.pinLockUntil = System.currentTimeMillis() + 10 * 60 * 1000L
+                            d.dismiss()
+                            a.say("Demasiados intentos. Espera 10 minutos.", "warn")
+                            if (Cloud.configured(a)) Thread {
+                                Cloud.alert(a.applicationContext, "warn", "Alguien se equivocó 5 veces con el PIN de la configuración.")
+                            }.start()
+                        } else {
+                            pin.hint = "PIN equivocado (${5 - p.pinFails} intentos más)"
+                        }
                     }
                 }
             }, a.full())
@@ -559,6 +653,7 @@ class Acciones(private val a: MainActivity) {
             has("estoy bien") -> run("estoybien")
             has("no tengo internet", "no hay internet", "internet") -> run("nointernet")
             has("wifi", "wi-fi", "wi fi") -> run("wifi")
+            has("pantalla", "compartir", "mostrar") -> run("pantalla")
             has("llama", "llamar") -> run("llamar")
             has("linterna", "luz") -> run("linterna")
             has("vibr") -> if (p.practice) run("ringer") else setRinger(AudioManager.RINGER_MODE_VIBRATE)

@@ -165,6 +165,71 @@ object SecurityCheck {
         out += if (adb) Item("Depuración USB", Level.WARN, "Está prendida y no hace falta")
         else Item("Depuración USB", Level.OK, "Apagada")
 
+        // 11 y 12. Apps escondidas y apps que no vienen de una tienda oficial.
+        val suspects = sensitiveUserApps(ctx)
+        val launcher = InstallWatch.launcherApps(ctx).keys
+        val hidden = suspects.filter { it.pkg !in launcher }
+        out += when {
+            hidden.any { it.severe } -> Item("Apps escondidas", Level.BAD,
+                "Sin ícono pero pueden escuchar, ver la ubicación o leer mensajes: " + names(hidden))
+            hidden.isNotEmpty() -> Item("Apps escondidas", Level.WARN,
+                "Sin ícono y con permisos delicados: " + names(hidden))
+            else -> Item("Apps escondidas", Level.OK, "Ninguna app escondida con permisos delicados")
+        }
+        val outside = suspects.filter { !it.fromStore }
+        out += if (outside.isNotEmpty()) Item("Apps instaladas a mano", Level.WARN,
+            "No vienen de la Play Store y tienen permisos delicados: " + names(outside))
+        else Item("Apps instaladas a mano", Level.OK, "Todas las apps con permisos delicados vienen de una tienda oficial")
+
+        return out
+    }
+
+    private data class Suspect(val pkg: String, val label: String, val severe: Boolean, val fromStore: Boolean)
+
+    private fun names(list: List<Suspect>): String =
+        list.take(5).joinToString { it.label } + if (list.size > 5) " y ${list.size - 5} más" else ""
+
+    /** Permisos que usa el software espía. Los "graves" permiten escuchar, ver dónde está o leer mensajes. */
+    private val severePerms = setOf(
+        "android.permission.RECORD_AUDIO", "android.permission.ACCESS_BACKGROUND_LOCATION",
+        "android.permission.READ_SMS", "android.permission.RECEIVE_SMS", "android.permission.READ_CALL_LOG"
+    )
+    private val sensitivePerms = severePerms + setOf(
+        "android.permission.ACCESS_FINE_LOCATION", "android.permission.CAMERA",
+        "android.permission.READ_CONTACTS", "android.permission.PROCESS_OUTGOING_CALLS"
+    )
+    private val vendorPrefixes = listOf(
+        "com.google.", "com.android.", "com.samsung.", "com.sec.", "com.miui.", "com.xiaomi.", "com.mi.", "android"
+    )
+    private val stores = setOf(
+        "com.android.vending", "com.sec.android.app.samsungapps", "com.xiaomi.market", "com.xiaomi.mipicks",
+        "com.google.android.packageinstaller.store"
+    )
+
+    /** Apps instaladas por el usuario (no de fábrica) que tienen concedido algún permiso delicado. */
+    @Suppress("DEPRECATION")
+    private fun sensitiveUserApps(ctx: Context): List<Suspect> {
+        val pm = ctx.packageManager
+        val out = ArrayList<Suspect>()
+        val pkgs = try { pm.getInstalledPackages(android.content.pm.PackageManager.GET_PERMISSIONS) } catch (e: Exception) { emptyList() }
+        for (pi in pkgs) {
+            val ai = pi.applicationInfo ?: continue
+            if ((ai.flags and android.content.pm.ApplicationInfo.FLAG_SYSTEM) != 0) continue
+            if (pi.packageName == ctx.packageName || vendorPrefixes.any { pi.packageName.startsWith(it) }) continue
+            val req = pi.requestedPermissions ?: continue
+            val flags = pi.requestedPermissionsFlags ?: continue
+            val granted = req.indices.filter {
+                (flags[it] and android.content.pm.PackageInfo.REQUESTED_PERMISSION_GRANTED) != 0
+            }.map { req[it] }.toSet()
+            if (granted.none { it in sensitivePerms }) continue
+            val installer = try {
+                if (Build.VERSION.SDK_INT >= 30) pm.getInstallSourceInfo(pi.packageName).installingPackageName
+                else pm.getInstallerPackageName(pi.packageName)
+            } catch (e: Exception) {
+                null
+            }
+            out += Suspect(pi.packageName, label(ctx, pi.packageName), granted.any { it in severePerms }, installer in stores)
+        }
         return out
     }
 

@@ -50,7 +50,7 @@ class SetupActivity : Activity() {
         c.addView(code, full())
         c.addView(text("PIN para la configuración (obligatorio)", 19f, true))
         c.addView(text("4 números. Así tus padres no cambian la configuración sin querer.", 16f, false, Col.GRIS))
-        val pin = input("1234", prefs.pin, numeric = true)
+        val pin = input("1234", "", numeric = true)
         c.addView(pin, full())
 
         c.addView(bigButton("Guardar y dar permisos", Col.VERDE) {

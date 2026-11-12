@@ -182,3 +182,47 @@ as $$
   delete from public.alerts where created_at < now() - interval '30 days';
   delete from public.app_errors where created_at < now() - interval '30 days';
 $$;
+
+-- Endurecimiento (prueba de penetración): mínimo privilegio, límites de tamaño
+-- y avisos que no se pueden alterar (solo marcar como resueltos).
+revoke all on public.alerts, public.devices, public.app_errors from anon;
+grant select, insert, update on public.alerts to anon;
+grant select, insert, update, delete on public.devices to anon;
+grant select, insert on public.app_errors to anon;
+revoke all on public.alerts, public.devices, public.app_errors from authenticated;
+
+alter table public.alerts
+  add constraint alerts_text_len check (length(text) <= 2000),
+  add constraint alerts_label_len check (length(device_label) <= 100),
+  add constraint alerts_device_len check (length(device_id) <= 100);
+alter table public.devices
+  add constraint devices_id_len check (length(id) <= 100),
+  add constraint devices_fields_len check (
+    length(coalesce(label,'')) <= 100 and length(coalesce(model,'')) <= 100 and
+    length(coalesce(network,'')) <= 50 and length(coalesce(ringer,'')) <= 30 and
+    length(coalesce(security,'')) <= 30 and length(coalesce(missing,'')) <= 500 and
+    length(coalesce(version,'')) <= 30 and length(coalesce(diagnostic,'')) <= 600 and
+    coalesce(array_length(hidden_categories, 1), 0) <= 10);
+alter table public.app_errors
+  add constraint app_errors_len check (
+    length(coalesce(message,'')) <= 1000 and length(coalesce(stack,'')) <= 8000 and
+    length(coalesce(place,'')) <= 200 and length(device_id) <= 100);
+
+create or replace function public.alerts_guard_update()
+returns trigger
+language plpgsql
+set search_path = public
+as $$
+begin
+  if new.text is distinct from old.text or new.kind is distinct from old.kind
+     or new.lat is distinct from old.lat or new.lng is distinct from old.lng
+     or new.device_id is distinct from old.device_id or new.created_at is distinct from old.created_at
+     or new.family_code is distinct from old.family_code then
+    raise exception 'Solo se puede marcar un aviso como resuelto';
+  end if;
+  return new;
+end;
+$$;
+drop trigger if exists alerts_guard_update on public.alerts;
+create trigger alerts_guard_update before update on public.alerts
+  for each row execute function public.alerts_guard_update();

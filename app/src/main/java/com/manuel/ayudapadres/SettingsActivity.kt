@@ -79,7 +79,7 @@ class SettingsActivity : Activity() {
             c.addView(editRow("Cómo saluda la app", prefs.parentName) { prefs.parentName = it }, full())
             c.addView(editRow("Quién ayuda", prefs.helperName) { prefs.helperName = it }, full())
             c.addView(editRow("Teléfono de quien ayuda", prefs.helperPhone, numeric = true) { prefs.helperPhone = it }, full())
-            c.addView(editRow("PIN de configuración", if (prefs.pin.isEmpty()) "Sin PIN" else "••••", numeric = true, raw = prefs.pin) {
+            c.addView(editRow("PIN de configuración", if (prefs.pin.isEmpty()) "Sin PIN" else "••••", numeric = true, raw = "") {
                 if (it.length >= 4 && it.all { ch -> ch.isDigit() }) prefs.pin = it
                 else Toast.makeText(this, "El PIN debe tener al menos 4 números", Toast.LENGTH_LONG).show()
             }, full())

@@ -70,7 +70,7 @@ object Cloud {
             .put("device_id", p.deviceId)
             .put("device_label", if (p.role == "manuel") p.helperName else p.parentName.replaceFirstChar { it.uppercase() })
             .put("kind", kind)
-            .put("text", text)
+            .put("text", text.take(1900))
         if (lat != null && lng != null) o.put("lat", lat).put("lng", lng)
         return request(ctx, "POST", "alerts", o.toString(), "return=minimal") != null
     }

@@ -173,7 +173,7 @@ class DiagnosticsActivity : Activity() {
             else -> Row("Último reporte al panel", Lv.BAD,
                 "Fue " + DateUtils.getRelativeTimeSpanString(prefs.lastReport) + ": el celular está durmiendo la app")
         }
-        out += if (prefs.pin.length >= 4) Row("PIN de configuración", Lv.OK, "Puesto")
+        out += if (prefs.pin.isNotEmpty()) Row("PIN de configuración", Lv.OK, "Puesto")
                else Row("PIN de configuración", Lv.BAD, "Sin PIN: cualquiera puede cambiar la configuración", "settings")
         return out
     }

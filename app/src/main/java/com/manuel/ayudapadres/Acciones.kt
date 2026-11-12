@@ -643,7 +643,7 @@ class Acciones(private val a: MainActivity) {
                         d.dismiss()
                         onOk()
                     }
-                    t == p.pin -> {
+                    p.pinMatches(t) -> {
                         p.pinFails = 0
                         d.dismiss()
                         onOk()

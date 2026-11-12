@@ -42,9 +42,32 @@ class Prefs(context: Context) {
         get() = str("familyCode")
         set(v) = putStr("familyCode", v.trim().uppercase())
 
+    /**
+     * PIN de configuración. Se guarda solo su huella (SHA-256 con sal), nunca el número:
+     * aunque alguien copie los datos del celular, no ve el PIN.
+     * Leerlo devuelve la huella (o "" si no hay); para comprobarlo usar pinMatches().
+     */
     var pin: String
         get() = str("pin")
-        set(v) = putStr("pin", v)
+        set(v) = putStr("pin", if (v.isEmpty()) "" else "h:" + hashPin(v))
+
+    fun pinMatches(input: String): Boolean {
+        val stored = str("pin")
+        if (stored.isEmpty()) return false
+        if (!stored.startsWith("h:")) {
+            // PIN guardado por una versión anterior, sin huella: se compara y se convierte.
+            val ok = stored == input
+            if (ok) pin = input
+            return ok
+        }
+        return stored == "h:" + hashPin(input)
+    }
+
+    private fun hashPin(v: String): String {
+        val md = java.security.MessageDigest.getInstance("SHA-256")
+        val bytes = md.digest(("ayuda|" + deviceId + "|" + v).toByteArray(Charsets.UTF_8))
+        return bytes.joinToString("") { "%02x".format(it) }
+    }
 
     val deviceId: String
         get() {

@@ -238,6 +238,18 @@ class PanelActivity : Activity() {
                 }.start()
             }, full())
         }
+        box.addView(bigButton("Quitar este celular del panel", Col.BLANCO, Col.ROJO) {
+            android.app.AlertDialog.Builder(this)
+                .setMessage("¿Quitar “${d.optString("label")}” del panel? Si la app sigue instalada en modo padres, volverá a aparecer en 15 minutos.")
+                .setPositiveButton("Quitar") { _, _ ->
+                    Thread {
+                        Cloud.removeDevice(applicationContext, deviceId)
+                        runOnUiThread { load() }
+                    }.start()
+                }
+                .setNegativeButton("Cancelar", null)
+                .show()
+        }, full())
         box.addView(bigButton("Entrar con TeamViewer", Col.BLANCO, Col.TINTA) {
             val li = packageManager.getLaunchIntentForPackage("com.teamviewer.teamviewer.market.mobile")
             if (li != null) startActivity(li)

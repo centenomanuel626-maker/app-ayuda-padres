@@ -57,6 +57,17 @@ class SettingsActivity : Activity() {
         head.addView(text("Configuración", 26f, true), LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f))
         c.addView(head, full())
 
+        // ---------- Modo de este celular ----------
+        val mode = card(Col.FONDO, Col.AZUL)
+        mode.addView(text("Este celular está en modo:", 17f, false, Col.GRIS))
+        mode.addView(text(if (padres) "👵 Celular de mis padres" else "🧑‍💻 Mi celular (panel de ${prefs.helperName})", 22f, true))
+        mode.addView(bigButton(if (padres) "Cambiar a “Mi celular” (ver mi panel)" else "Cambiar a “Celular de mis padres”", Col.AZUL) {
+            confirm(if (padres) "¿Cambiar este celular a tu panel? Se conserva el código de familia." else "¿Cambiar este celular al modo de tus padres?") {
+                switchRole(if (padres) "manuel" else "padres")
+            }
+        }, full())
+        c.addView(mode, full())
+
         // ---------- Datos ----------
         section(c, "Datos")
         if (padres) {
@@ -220,11 +231,34 @@ class SettingsActivity : Activity() {
             .show()
     }
 
+    /** Cambia el modo sin borrar nada: se conserva el código de familia, los nombres y el teléfono. */
+    private fun switchRole(role: String) {
+        if (prefs.launcherMode) setLauncher(false)
+        prefs.role = role
+        if (role == "manuel") {
+            prefs.alertsReady = false
+            // Este celular deja de reportar como "padres": se quita del panel.
+            val ctx = applicationContext
+            val id = prefs.deviceId
+            Thread { Cloud.removeDevice(ctx, id) }.start()
+            startActivity(Intent(this, PanelActivity::class.java).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TASK))
+        } else {
+            if (prefs.pin.isEmpty()) Toast.makeText(this, "Pon un PIN en esta configuración", Toast.LENGTH_LONG).show()
+            prefs.knownApps = InstallWatch.launcherApps(this).keys
+            Alarms.scheduleAll(this)
+            startActivities(arrayOf(
+                Intent(this, MainActivity::class.java).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TASK),
+                Intent(this, SettingsActivity::class.java)
+            ))
+        }
+        finish()
+    }
+
     private fun resetButton(c: LinearLayout) {
         c.addView(bigButton("Configurar desde cero", Col.BLANCO, Col.ROJO) {
             confirm("¿Borrar la configuración de este celular?") {
                 prefs.role = ""
-                setLauncher(false)
+                if (prefs.launcherMode) setLauncher(false)
                 startActivity(Intent(this, SetupActivity::class.java).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TASK))
                 finish()
             }

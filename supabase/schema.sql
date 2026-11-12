@@ -131,3 +131,18 @@ $$;
 revoke execute on function public.borrar_avisos_viejos() from public, anon, authenticated;
 
 select cron.schedule('borrar-avisos-viejos', '15 4 * * *', $$select public.borrar_avisos_viejos();$$);
+
+-- Quitar un celular del panel (por ejemplo, el de prueba).
+grant delete on public.devices to anon;
+
+create or replace function public.remove_device(target_device text)
+returns void
+language sql
+security invoker
+set search_path = public
+as $$
+  delete from public.devices
+   where id = target_device and family_code = public.request_family_code();
+$$;
+
+grant execute on function public.remove_device(text) to anon;

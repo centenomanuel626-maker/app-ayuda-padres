@@ -103,6 +103,9 @@ object Cloud {
     fun resolveAlert(ctx: Context, id: Long): Boolean =
         request(ctx, "POST", "rpc/resolve_alert", JSONObject().put("alert_id", id).toString()) != null
 
+    fun removeDevice(ctx: Context, deviceId: String): Boolean =
+        request(ctx, "POST", "rpc/remove_device", JSONObject().put("target_device", deviceId).toString()) != null
+
     fun setHiddenCategories(ctx: Context, deviceId: String, cats: Set<String>): Boolean {
         val arr = JSONArray()
         cats.forEach { arr.put(it) }

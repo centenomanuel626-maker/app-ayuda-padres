@@ -210,6 +210,12 @@ class MainActivity : Activity() {
         mic.contentDescription = "Hablarle a la app"
         mic.setOnClickListener { listen() }
         top.addView(mic, LinearLayout.LayoutParams(dp(68), dp(68)))
+        val gear = text("⚙️", 22f)
+        gear.gravity = Gravity.CENTER
+        gear.background = rounded(Col.BLANCO, 99, Col.LINEA)
+        gear.contentDescription = "Configuración (con PIN)"
+        gear.setOnClickListener { acc.openSettings() }
+        top.addView(gear, LinearLayout.LayoutParams(dp(48), dp(48)))
         c.addView(top, full())
 
         if (prefs.practice) {

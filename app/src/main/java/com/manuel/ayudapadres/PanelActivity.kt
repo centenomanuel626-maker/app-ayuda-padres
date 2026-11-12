@@ -90,6 +90,9 @@ class PanelActivity : Activity() {
         head.addView(settings)
         c.addView(head, full())
         c.addView(text("Código de familia: ${prefs.familyCode}", 16f, false, Col.GRIS), full())
+        c.addView(rowButton("🛡️", "Revisar este celular", "¿Alguien espía o alteró mi propio celular?", Col.NARANJA) {
+            checkThisPhone()
+        }, full())
 
         if (!Cloud.configured(this)) {
             val w = card(Col.AMARILLO_SUAVE, Col.AMARILLO)
@@ -122,6 +125,40 @@ class PanelActivity : Activity() {
         } else {
             for (i in 0 until a.length()) alertRow(c, a.getJSONObject(i))
         }
+    }
+
+    /** Revisión de seguridad del propio celular de Manuel. */
+    private fun checkThisPhone() {
+        Toast.makeText(this, "Revisando… espera unos segundos", Toast.LENGTH_SHORT).show()
+        Thread {
+            val items = SecurityCheck.run(applicationContext)
+            val overall = SecurityCheck.overall(items)
+            runOnUiThread {
+                sheet { s, d ->
+                    val (title, col, soft) = when (overall) {
+                        "rojo" -> Triple("🔴 Tu celular podría estar alterado", Col.ROJO, Col.ROJO_SUAVE)
+                        "amarillo" -> Triple("🟡 Hay cosas para revisar", Col.AMARILLO, Col.AMARILLO_SUAVE)
+                        else -> Triple("🟢 Todo se ve bien", Col.VERDE, Col.VERDE_SUAVE)
+                    }
+                    val box = card(soft, col)
+                    box.addView(text(title, 22f, true))
+                    s.addView(box, full())
+                    for (item in items) {
+                        val mark = when (item.level) {
+                            SecurityCheck.Level.OK -> "✅"
+                            SecurityCheck.Level.WARN -> "⚠️"
+                            SecurityCheck.Level.BAD -> "❌"
+                        }
+                        val row = card()
+                        row.addView(text("$mark ${item.name}", 18f, true))
+                        row.addView(text(item.detail, 16f, false, Col.GRIS))
+                        s.addView(row, full())
+                    }
+                    s.addView(text("Revisa también a mano: WhatsApp → Dispositivos vinculados, y tu cuenta de Google en myaccount.google.com/device-activity.", 16f, false, Col.GRIS), full())
+                    s.addView(bigButton("Cerrar", Col.BLANCO, Col.TINTA) { d.dismiss() }, full())
+                }
+            }
+        }.start()
     }
 
     private fun deviceCard(c: LinearLayout, d: JSONObject) {

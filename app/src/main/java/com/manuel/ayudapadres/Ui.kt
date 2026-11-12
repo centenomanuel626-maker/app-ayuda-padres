@@ -136,7 +136,7 @@ fun Context.tile(emoji: String, title: String, color: Int, onClick: () -> Unit):
     t.setOnClickListener { onClick() }
     t.addView(text(emoji, 42f))
     val space = View(this)
-    t.addView(space, LinearLayout.LayoutParams(1, 0, 1f))
+    t.addView(space, LinearLayout.LayoutParams(1, dp(12)))
     t.addView(text(title, 23f, true, Col.BLANCO))
     return t
 }

@@ -233,11 +233,11 @@ class MainActivity : Activity() {
             val row = hbox(12)
             val a = visible[i]
             row.addView(tile(a.emoji, a.name, a.color) { showCategory(a.id) },
-                LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f))
+                LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.MATCH_PARENT, 1f))
             if (i + 1 < visible.size) {
                 val b = visible[i + 1]
                 row.addView(tile(b.emoji, b.name, b.color) { showCategory(b.id) },
-                    LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f))
+                    LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.MATCH_PARENT, 1f))
             }
             c.addView(row, full())
             i += 2

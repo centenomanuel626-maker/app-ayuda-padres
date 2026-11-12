@@ -14,7 +14,7 @@ object Catalog {
         Cat("ayuda", "Ayuda", "🤝", Col.VERDE_AZUL,
             listOf("llamar", "familia", "video", "remoto", "olvide", "estoybien", "emergencia", "aprender")),
         Cat("celular", "Mi celular", "📱", Col.NARANJA,
-            listOf("linterna", "lupa", "medicinas", "bateria", "clave", "espacio", "updates", "lento", "quitar", "seguridad"))
+            listOf("seguridad", "linterna", "lupa", "medicinas", "bateria", "quitar", "espacio", "clave", "updates", "lento"))
     )
 
     fun cat(id: String): Cat = cats.firstOrNull { it.id == id } ?: cats[0]

@@ -146,3 +146,39 @@ as $$
 $$;
 
 grant execute on function public.remove_device(text) to anon;
+
+-- Versión instalada y resultado de "Probar todo" en cada celular.
+alter table public.devices add column if not exists version text;
+alter table public.devices add column if not exists diagnostic text;
+
+-- Errores de la app (para corregirlos aunque nadie los vea). Se borran a los 30 días.
+create table if not exists public.app_errors (
+  id           bigint generated always as identity primary key,
+  family_code  text not null check (length(family_code) >= 8),
+  device_id    text not null,
+  role         text,
+  version      text,
+  model        text,
+  android      text,
+  place        text,
+  message      text,
+  stack        text,
+  happened_at  timestamptz,
+  created_at   timestamptz not null default now()
+);
+alter table public.app_errors enable row level security;
+create policy "familia reporta errores" on public.app_errors
+  for insert to anon with check (family_code = public.request_family_code());
+create policy "familia ve sus errores" on public.app_errors
+  for select to anon using (family_code = public.request_family_code());
+grant select, insert on public.app_errors to anon;
+
+create or replace function public.borrar_avisos_viejos()
+returns void
+language sql
+security definer
+set search_path = public
+as $$
+  delete from public.alerts where created_at < now() - interval '30 days';
+  delete from public.app_errors where created_at < now() - interval '30 days';
+$$;

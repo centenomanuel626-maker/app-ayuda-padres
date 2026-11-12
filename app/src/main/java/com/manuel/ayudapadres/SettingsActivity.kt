@@ -68,6 +68,11 @@ class SettingsActivity : Activity() {
         }, full())
         c.addView(mode, full())
 
+        c.addView(bigButton("🧪 Probar todo en este celular", Col.VERDE) {
+            startActivity(Intent(this, DiagnosticsActivity::class.java))
+        }, full())
+        c.addView(text("Revisa una por una las funciones (llamadas, ubicación, alarmas, avisos…) y deja el resultado en el panel. Hazlo en cada celular antes de dárselo a tus padres.", 16f, false, Col.GRIS), full())
+
         // ---------- Datos ----------
         section(c, "Datos")
         if (padres) {

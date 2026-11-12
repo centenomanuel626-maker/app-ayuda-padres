@@ -59,6 +59,7 @@ object Cloud {
         status.put("label", p.parentName.replaceFirstChar { it.uppercase() })
         status.put("model", Build.MANUFACTURER.replaceFirstChar { it.uppercase() } + " " + Build.MODEL)
         status.put("last_seen", java.time.Instant.now().toString())
+        status.put("version", BuildConfig.VERSION_NAME)
         return request(ctx, "POST", "devices?on_conflict=id", status.toString(), "resolution=merge-duplicates,return=minimal") != null
     }
 
@@ -102,6 +103,13 @@ object Cloud {
     // HttpURLConnection no permite PATCH, así que los cambios van por funciones RPC (ver supabase/schema.sql).
     fun resolveAlert(ctx: Context, id: Long): Boolean =
         request(ctx, "POST", "rpc/resolve_alert", JSONObject().put("alert_id", id).toString()) != null
+
+    fun sendErrors(ctx: Context, rows: JSONArray): Boolean =
+        request(ctx, "POST", "app_errors", rows.toString(), "return=minimal") != null
+
+    /** Guarda el resultado del diagnóstico completo en la tarjeta de este celular. */
+    fun reportDiagnostic(ctx: Context, summary: String): Boolean =
+        reportStatus(ctx, JSONObject().put("diagnostic", summary))
 
     fun removeDevice(ctx: Context, deviceId: String): Boolean =
         request(ctx, "POST", "rpc/remove_device", JSONObject().put("target_device", deviceId).toString()) != null

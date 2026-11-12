@@ -120,7 +120,11 @@ class Acciones(private val a: MainActivity) {
                 if (needWrite()) return
                 val ms = Settings.System.getInt(a.contentResolver, Settings.System.SCREEN_OFF_TIMEOUT, 30000)
                 val next = if (ms >= 120000) 30000 else 300000
-                Settings.System.putInt(a.contentResolver, Settings.System.SCREEN_OFF_TIMEOUT, next)
+                if (!writeSys(Settings.System.SCREEN_OFF_TIMEOUT, next)) {
+                    guide("Busca “Tiempo de espera de la pantalla” y elige 5 minutos.")
+                    open(Intent(Settings.ACTION_DISPLAY_SETTINGS))
+                    return
+                }
                 a.say(if (next == 300000) "Listo, ahora la pantalla espera 5 minutos antes de apagarse."
                       else "Listo, la pantalla vuelve a apagarse a los 30 segundos.")
                 a.refresh()
@@ -128,7 +132,10 @@ class Acciones(private val a: MainActivity) {
             "girar" -> {
                 if (needWrite()) return
                 val on = Settings.System.getInt(a.contentResolver, Settings.System.ACCELEROMETER_ROTATION, 1) == 1
-                Settings.System.putInt(a.contentResolver, Settings.System.ACCELEROMETER_ROTATION, if (on) 0 else 1)
+                if (!writeSys(Settings.System.ACCELEROMETER_ROTATION, if (on) 0 else 1)) {
+                    a.say("Este celular no me deja cambiarlo. Usa el botón “Girar” de los ajustes rápidos, arriba.", "warn")
+                    return
+                }
                 a.say(if (on) "Listo, la pantalla ya no se voltea." else "Listo, la pantalla vuelve a girar.")
                 a.refresh()
             }
@@ -187,6 +194,13 @@ class Acciones(private val a: MainActivity) {
         Speaker.say(a, msg)
     }
 
+    /** Cambia un ajuste del sistema; algunos celulares lo bloquean aunque haya permiso. */
+    private fun writeSys(name: String, value: Int): Boolean = try {
+        Settings.System.putInt(a.contentResolver, name, value)
+    } catch (e: Exception) {
+        false
+    }
+
     private fun needWrite(): Boolean {
         if (Settings.System.canWrite(a)) return false
         a.say("Falta un permiso para cambiar ajustes. $helper lo tiene que dar una vez.", "warn")
@@ -225,6 +239,14 @@ class Acciones(private val a: MainActivity) {
             } catch (e: Exception) { }
         }
         return false
+    }
+
+    private fun online(): Boolean = try {
+        val cm = a.getSystemService(android.net.ConnectivityManager::class.java)
+        cm.getNetworkCapabilities(cm.activeNetwork)
+            ?.hasCapability(android.net.NetworkCapabilities.NET_CAPABILITY_VALIDATED) == true
+    } catch (e: Exception) {
+        true
     }
 
     private fun batteryPct(): Int =
@@ -329,11 +351,11 @@ class Acciones(private val a: MainActivity) {
 
     private fun changeBrightness(delta: Int) {
         val cr = a.contentResolver
-        Settings.System.putInt(cr, Settings.System.SCREEN_BRIGHTNESS_MODE, Settings.System.SCREEN_BRIGHTNESS_MODE_MANUAL)
+        writeSys(Settings.System.SCREEN_BRIGHTNESS_MODE, Settings.System.SCREEN_BRIGHTNESS_MODE_MANUAL)
         val cur = Settings.System.getInt(cr, Settings.System.SCREEN_BRIGHTNESS, 128)
         val next = (cur + delta).coerceIn(15, 255)
-        Settings.System.putInt(cr, Settings.System.SCREEN_BRIGHTNESS, next)
-        Speaker.say(a, if (delta > 0) "Más claro" else "Más oscuro")
+        if (writeSys(Settings.System.SCREEN_BRIGHTNESS, next)) Speaker.say(a, if (delta > 0) "Más claro" else "Más oscuro")
+        else a.say("Este celular no me deja cambiar el brillo. Usa la barrita de los ajustes rápidos, arriba.", "warn")
     }
 
     // ---------------- Ayuda ----------------
@@ -471,9 +493,13 @@ class Acciones(private val a: MainActivity) {
             if (Cloud.configured(a)) {
                 Thread { Cloud.alert(a.applicationContext, "emergencia", msg, loc?.latitude, loc?.longitude) }.start()
             }
-            // La ubicación va al panel de Manuel y en el mensaje de WhatsApp; la llamada sale sola por WhatsApp.
-            if (whatsappCall(p.helperPhone, video = false)) {
-                a.say("Llamando a $helper por WhatsApp. Ya le mandé tu ubicación a su panel.")
+            if (!online()) {
+                // Sin internet WhatsApp no llama: en una emergencia se usa la línea normal aunque cueste.
+                a.say("No hay internet. Llamando a $helper por teléfono.", "warn")
+                val granted = a.checkSelfPermission(Manifest.permission.CALL_PHONE) == PackageManager.PERMISSION_GRANTED
+                open(Intent(if (granted) Intent.ACTION_CALL else Intent.ACTION_DIAL, Uri.parse("tel:" + p.helperPhone.trim())))
+            } else if (whatsappCall(p.helperPhone, video = false)) {
+                a.say("Llamando a $helper por WhatsApp. Tu ubicación va a su panel.")
             } else {
                 a.say("Toca el botón de enviar para que $helper reciba tu ubicación. Después llámalo.", "warn")
                 if (!whatsapp(p.helperPhone, msg)) call(p.helperPhone, helper)
@@ -660,16 +686,17 @@ class Acciones(private val a: MainActivity) {
             has("estoy bien") -> run("estoybien")
             has("no tengo internet", "no hay internet", "internet") -> run("nointernet")
             has("wifi", "wi-fi", "wi fi") -> run("wifi")
-            has("pantalla", "compartir", "mostrar") -> run("pantalla")
+            has("letra") -> run("letra")
+            has("brillo", "oscur", "muy claro", "más claro") -> run("brillo")
+            has("compartir", "mostrar mi pantalla", "mostrarle", "ver mi pantalla") -> run("pantalla")
             has("llama", "llamar") -> run("llamar")
             has("linterna", "luz") -> run("linterna")
+            has("actualiz", "descarg") -> run("updates")
             has("vibr") -> if (p.practice) run("ringer") else setRinger(AudioManager.RINGER_MODE_VIBRATE)
             has("silencio") -> if (p.practice) run("ringer") else setRinger(AudioManager.RINGER_MODE_SILENT)
             has("volumen", "no oigo", "no escucho", "más alto") -> run("volumen")
             has("que suene", "sonido", "timbre") -> if (p.practice) run("ringer") else setRinger(AudioManager.RINGER_MODE_NORMAL)
             has("batería", "bateria", "carga") -> run("bateria")
-            has("letra") -> run("letra")
-            has("brillo", "oscur", "claro") -> run("brillo")
             has("medicina", "pastilla", "remedio") -> run("medicinas")
             has("lupa", "no veo", "leer") -> run("lupa")
             has("seguridad", "espía", "espia", "espiando", "hackea") -> run("seguridad")
@@ -677,7 +704,6 @@ class Acciones(private val a: MainActivity) {
             has("bluetooth", "audífono", "audifono", "carro") -> run("bluetooth")
             has("contraseña", "clave") -> run("clave")
             has("espacio", "lleno", "memoria") -> run("espacio")
-            has("actualiz") -> run("updates")
             has("familia", "foto") -> run("familia")
             else -> a.say("No entendí. Toca el micrófono e intenta otra vez.", "warn")
         }

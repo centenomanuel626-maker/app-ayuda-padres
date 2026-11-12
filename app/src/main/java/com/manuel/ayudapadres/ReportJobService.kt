@@ -28,7 +28,9 @@ class ReportJobService : JobService() {
         Thread {
             try {
                 work(applicationContext)
-            } catch (e: Exception) { }
+            } catch (e: Exception) {
+                CrashLog.save(applicationContext, e, "reporte cada 15 minutos")
+            }
             jobFinished(params, false)
         }.start()
         return true
@@ -54,6 +56,7 @@ class ReportJobService : JobService() {
 
         fun work(ctx: Context) {
             val p = Prefs(ctx)
+            try { CrashLog.flush(ctx) } catch (e: Exception) { }
             when (p.role) {
                 "padres" -> parentWork(ctx, p)
                 "manuel" -> helperWork(ctx, p)
@@ -84,7 +87,7 @@ class ReportJobService : JobService() {
                 .put("missing", Perms.missingCritical(ctx).joinToString(", "))
                 .put("adblock", WebShield.adBlockActive(ctx))
             if (p.lastSecurity.isNotEmpty()) status.put("security", p.lastSecurity)
-            Cloud.reportStatus(ctx, status)
+            if (Cloud.reportStatus(ctx, status)) p.lastReport = System.currentTimeMillis()
 
             // Batería baja: un aviso cada 3 horas como máximo.
             if (pct <= 20 && !charging && System.currentTimeMillis() - p.lastBatteryAlert > 3 * 60 * 60 * 1000L) {

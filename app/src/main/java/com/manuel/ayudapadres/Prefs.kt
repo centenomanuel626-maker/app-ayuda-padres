@@ -88,6 +88,10 @@ class Prefs(context: Context) {
         get() = p.getLong("lastEstoyBien", 0L)
         set(v) = p.edit().putLong("lastEstoyBien", v).apply()
 
+    var lastReport: Long
+        get() = p.getLong("lastReport", 0L)
+        set(v) = p.edit().putLong("lastReport", v).apply()
+
     var lastBatteryAlert: Long
         get() = p.getLong("lastBatteryAlert", 0L)
         set(v) = p.edit().putLong("lastBatteryAlert", v).apply()

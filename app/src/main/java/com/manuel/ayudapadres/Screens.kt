@@ -63,6 +63,7 @@ fun MainActivity.showDiag() {
     c.addView(text("Revisando…", 20f, false, Col.GRIS))
     val ctx = applicationContext
     Thread {
+      try {
         val airplane = Settings.Global.getInt(contentResolver, Settings.Global.AIRPLANE_MODE_ON, 0) == 1
         val wifiOn = ctx.getSystemService(WifiManager::class.java).isWifiEnabled
         val dataOn = try {
@@ -103,6 +104,10 @@ fun MainActivity.showDiag() {
             p.addView(bigButton("Revisar otra vez", Col.BLANCO, Col.TINTA) { showDiag() }, full())
             say(msg, if (online) "ok" else "info")
         }
+      } catch (e: Exception) {
+        CrashLog.save(ctx, e, "no tengo internet")
+        runOnUiThread { if (screen == "diag") say("No pude revisar la conexión. Llama a ${prefs.helperName}.", "warn") }
+      }
     }.start()
 }
 
@@ -124,7 +129,20 @@ private fun MainActivity.runSecurity() {
     say("Revisando tu celular. Espera unos segundos.", "info")
     val ctx = applicationContext
     Thread {
-        val items = SecurityCheck.run(ctx)
+        val items = try {
+            SecurityCheck.run(ctx)
+        } catch (e: Exception) {
+            CrashLog.save(ctx, e, "revisión de seguridad")
+            runOnUiThread {
+                if (screen == "seguridad") {
+                    val p = page()
+                    header(p, "Revisión de seguridad") { backToCategory() }
+                    p.addView(text("No pude terminar la revisión en este celular. Ya quedó anotado para ${prefs.helperName}.", 21f), full())
+                    p.addView(bigButton("Intentar otra vez", Col.AZUL) { runSecurity() }, full())
+                }
+            }
+            return@Thread
+        }
         val overall = SecurityCheck.overall(items)
         prefs.lastSecurity = overall
         if (Cloud.configured(ctx)) {
@@ -141,7 +159,8 @@ private fun MainActivity.runSecurity() {
             val problems = items.count { it.level != SecurityCheck.Level.OK }
             val (color, soft, title, sub) = when (overall) {
                 "rojo" -> Quad(Col.ROJO, Col.ROJO_SUAVE, "🔴 Tu celular podría estar alterado",
-                    "No entres al banco desde este celular. Ya le avisé a ${prefs.helperName}.")
+                    "No entres al banco desde este celular. " +
+                        if (Cloud.configured(ctx)) "Ya le avisé a ${prefs.helperName}." else "Llama a ${prefs.helperName}.")
                 "amarillo" -> Quad(Col.AMARILLO, Col.AMARILLO_SUAVE, "🟡 Hay $problems cosa(s) para revisar",
                     "No es grave. ${prefs.helperName} lo puede revisar.")
                 else -> Quad(Col.VERDE, Col.VERDE_SUAVE, "🟢 Todo se ve bien", "No encontré señales de espionaje.")

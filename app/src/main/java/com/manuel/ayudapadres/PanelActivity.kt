@@ -214,6 +214,13 @@ class PanelActivity : Activity() {
         if (ringer.isNotEmpty() && ringer != "null") pill(box, "Sonido", ringer, Col.TINTA, Col.FONDO)
         val seen = millis(d.optString("last_seen"))
         val late = seen == null || System.currentTimeMillis() - seen > 60 * 60 * 1000L
+        val ver = d.optString("version", "")
+        if (ver.isNotEmpty() && ver != "null") pill(box, "Versión de la app", ver, Col.TINTA, Col.FONDO)
+        val diag = d.optString("diagnostic", "")
+        if (diag.isNotEmpty() && diag != "null") {
+            val ok = diag.contains("Todo funciona")
+            box.addView(text("🧪 Probar todo: " + diag.substringAfter(": "), 15f, !ok, if (ok) Col.VERDE else Col.AMARILLO), full())
+        }
         pill(box, "Último reporte", ago(d.optString("last_seen")), if (late) Col.ROJO else Col.TINTA, if (late) Col.ROJO_SUAVE else Col.FONDO)
         if (late) {
             box.addView(text("Hace más de una hora que no reporta. Puede estar apagado, sin internet, o el celular cerró la app (en Xiaomi: revisa “Inicio automático”).", 15f, false, Col.ROJO), full())

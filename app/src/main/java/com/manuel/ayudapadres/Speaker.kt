@@ -37,6 +37,8 @@ object Speaker {
         tts?.speak(message, TextToSpeech.QUEUE_FLUSH, null, "ayuda")
     }
 
+    fun isReady(): Boolean = ready
+
     fun stop() {
         tts?.stop()
     }

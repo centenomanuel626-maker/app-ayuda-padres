@@ -29,11 +29,12 @@ class MainActivity : Activity() {
     private val handler = Handler(Looper.getMainLooper())
     private val hideBanner = Runnable { banner.visibility = View.GONE }
 
-    /** Pantalla actual: "home", "cat", o una subpantalla ("diag", "seguridad", "quitar"...). */
     /** Tutorial guiado activo (null si no hay). */
     var coach: Coach? = null
 
+    /** Pantalla actual: "home", "cat", o una subpantalla ("diag", "seguridad", "quitar"...). */
     var screen = "home"
+    private var dockCall: TextView? = null
     var cat = "internet"
 
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -102,6 +103,8 @@ class MainActivity : Activity() {
 
     /** Vuelve a dibujar la pantalla actual (para actualizar estados como "Prendida"). */
     fun refresh() {
+        // El nombre de quien ayuda puede haber cambiado en la configuración.
+        dockCall?.text = "📞 Llamar a ${prefs.helperName}"
         when (screen) {
             "home" -> showHome()
             "web" -> showWebProtection()
@@ -141,6 +144,7 @@ class MainActivity : Activity() {
         val call = bigButton("📞 Llamar a ${prefs.helperName}", Col.VERDE) { acc.run("llamar") }
         val sos = bigButton("🆘 Emergencia", Col.ROJO) { acc.run("emergencia") }
         call.tag = "dock:call"
+        dockCall = call
         sos.tag = "dock:sos"
         call.minHeight = dp(76)
         sos.minHeight = dp(76)
@@ -162,7 +166,8 @@ class MainActivity : Activity() {
         )
         banner.visibility = View.VISIBLE
         handler.removeCallbacks(hideBanner)
-        handler.postDelayed(hideBanner, 5000)
+        // Los mensajes largos se quedan más tiempo, para que alcance a leerlos.
+        handler.postDelayed(hideBanner, maxOf(5000L, message.length * 80L))
         Speaker.say(this, message)
     }
 
@@ -337,7 +342,9 @@ class MainActivity : Activity() {
     fun listen() {
         val i = Intent(RecognizerIntent.ACTION_RECOGNIZE_SPEECH)
             .putExtra(RecognizerIntent.EXTRA_LANGUAGE_MODEL, RecognizerIntent.LANGUAGE_MODEL_FREE_FORM)
-            .putExtra(RecognizerIntent.EXTRA_LANGUAGE, Locale.getDefault().toLanguageTag())
+            // Siempre en español, aunque el celular esté en otro idioma.
+            .putExtra(RecognizerIntent.EXTRA_LANGUAGE,
+                if (Locale.getDefault().language == "es") Locale.getDefault().toLanguageTag() else "es-US")
             .putExtra(RecognizerIntent.EXTRA_PROMPT, "Dime qué necesitas")
         try {
             Speaker.stop()

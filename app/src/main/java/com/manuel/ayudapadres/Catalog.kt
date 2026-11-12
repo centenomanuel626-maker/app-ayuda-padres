@@ -8,7 +8,7 @@ object Catalog {
     const val ESTOY_BIEN_TEXT = "Tocó “Estoy bien”."
 
     val cats = listOf(
-        Cat("internet", "Internet", "📶", Col.AZUL, listOf("wifi", "nointernet", "bluetooth", "datos")),
+        Cat("internet", "Internet", "📶", Col.AZUL, listOf("wifi", "nointernet", "web", "bluetooth", "datos")),
         Cat("sonido", "Sonido y pantalla", "🔊", Col.MORADO,
             listOf("ringer", "volumen", "letra", "notif", "brillo", "apagado", "girar")),
         Cat("ayuda", "Ayuda", "🤝", Col.VERDE_AZUL,
@@ -26,6 +26,7 @@ object Catalog {
         "nointernet" -> Btn(id, "🌐", "No tengo internet", "Reviso qué pasa y te digo")
         "bluetooth" -> Btn(id, "🎧", "Bluetooth", "Audífonos o el carro")
         "datos" -> Btn(id, "📡", "Datos móviles", "Internet fuera de casa")
+        "web" -> Btn(id, "🛑", "Bloquear anuncios y ventanas", "Avisos de “instala esto” en páginas y videos")
         "ringer" -> Btn(id, "🔔", "Sonido, vibración o silencio", "Cambia con un toque")
         "volumen" -> Btn(id, "🔊", "Subir volumen", "Para oír las llamadas")
         "letra" -> Btn(id, "🔠", "Letra más grande", "Leer mejor la pantalla")

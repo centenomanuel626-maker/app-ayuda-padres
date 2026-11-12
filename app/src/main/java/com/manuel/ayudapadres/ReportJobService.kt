@@ -82,6 +82,7 @@ class ReportJobService : JobService() {
             }
             val status = JSONObject().put("battery", pct).put("charging", charging).put("network", net).put("ringer", ringer)
                 .put("missing", Perms.missingCritical(ctx).joinToString(", "))
+                .put("adblock", WebShield.adBlockActive(ctx))
             if (p.lastSecurity.isNotEmpty()) status.put("security", p.lastSecurity)
             Cloud.reportStatus(ctx, status)
 

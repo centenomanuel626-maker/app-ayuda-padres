@@ -197,6 +197,11 @@ class PanelActivity : Activity() {
             else -> Triple(Col.GRIS, Col.FONDO, "Sin revisar")
         }
         pill(box, "Seguridad", sl, sc, ss)
+        if (d.has("adblock") && !d.isNull("adblock")) {
+            val ad = d.optBoolean("adblock", false)
+            pill(box, "Bloqueo de anuncios", if (ad) "Activo" else "Apagado",
+                if (ad) Col.VERDE else Col.AMARILLO, if (ad) Col.VERDE_SUAVE else Col.AMARILLO_SUAVE)
+        }
         val missing = d.optString("missing", "")
         if (missing.isNotEmpty() && missing != "null") {
             pill(box, "Permisos", "Faltan", Col.ROJO, Col.ROJO_SUAVE)

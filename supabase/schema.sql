@@ -32,7 +32,8 @@ create table if not exists public.devices (
   last_ok            timestamptz,
   last_seen          timestamptz not null default now(),
   hidden_categories  text[] not null default '{}',
-  missing            text
+  missing            text,
+  adblock            boolean
 );
 
 -- Avisos: emergencias, "Estoy bien", apps nuevas, batería baja, revisión de seguridad...

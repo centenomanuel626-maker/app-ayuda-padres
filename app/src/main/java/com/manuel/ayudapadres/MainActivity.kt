@@ -99,6 +99,7 @@ class MainActivity : Activity() {
     fun refresh() {
         when (screen) {
             "home" -> showHome()
+            "web" -> showWebProtection()
             "cat" -> showCategory(cat, keepScroll = true)
             "quitar" -> showUnused()
             "medicinas" -> showMeds()

@@ -2,6 +2,8 @@ package com.manuel.ayudapadres
 
 import android.app.AppOpsManager
 import android.app.usage.UsageStatsManager
+import android.content.ClipData
+import android.content.ClipboardManager
 import android.content.Intent
 import android.content.pm.ApplicationInfo
 import android.graphics.drawable.GradientDrawable
@@ -422,4 +424,66 @@ fun MainActivity.showTutorial(step: Int) {
         }, full())
     }
     if (s > 0) c.addView(bigButton("Anterior", Col.BLANCO, Col.TINTA) { showTutorial(s - 1) }, full())
+}
+
+// ---------------- Bloquear anuncios y ventanas ----------------
+
+fun MainActivity.showWebProtection() {
+    screen = "web"
+    val c = page(keepScroll = true)
+    header(c, "Anuncios y ventanas") { backToCategory() }
+    c.addView(text("Tres protecciones contra los avisos de “instala esto”, los virus falsos y los anuncios engañosos.", 20f), full())
+
+    // 1. Anuncios: DNS privado
+    val dnsOn = WebShield.adBlockActive(this)
+    val b1 = card(if (dnsOn) Col.VERDE_SUAVE else Col.AMARILLO_SUAVE, if (dnsOn) Col.VERDE else Col.AMARILLO)
+    b1.addView(text((if (dnsOn) "✅ " else "⚠️ ") + "1. Bloqueo de anuncios", 21f, true))
+    b1.addView(text(if (dnsOn) "Activo: la mayoría de los anuncios y ventanas engañosas ya no aparecen en páginas ni apps."
+                    else "Apagado. Se activa una sola vez en los ajustes del celular (lo mejor es que lo haga ${prefs.helperName}).", 17f))
+    if (!dnsOn) b1.addView(bigButton("Activar bloqueo de anuncios", Col.AZUL) {
+        try {
+            getSystemService(ClipboardManager::class.java).setPrimaryClip(ClipData.newPlainText("DNS", WebShield.DNS))
+        } catch (e: Exception) { }
+        sheet { s, d ->
+            s.addView(heading("Bloqueo de anuncios"))
+            s.addView(text("1. Busca “DNS privado” (en Samsung: Conexiones → Más ajustes de conexión → DNS privado; en Xiaomi: Conexión y compartir → DNS privado).\n" +
+                "2. Elige “Nombre de host del proveedor”.\n3. Mantén apretado el espacio y toca “Pegar”: ${WebShield.DNS}\n4. Toca “Guardar”.", 19f))
+            s.addView(bigButton("Abrir los ajustes", Col.AZUL) {
+                d.dismiss()
+                acc.open(Intent("android.settings.PRIVATE_DNS_SETTINGS"), Intent(Settings.ACTION_WIRELESS_SETTINGS), Intent(Settings.ACTION_SETTINGS))
+            }, full())
+            s.addView(bigButton("Cerrar", Col.BLANCO, Col.TINTA) { d.dismiss() }, full())
+        }
+        say("Copié la dirección del bloqueo. Sigue los pasos.", "info")
+    }, full())
+    c.addView(b1, full())
+
+    // 2. Avisos de páginas web en los navegadores
+    val b2 = card()
+    b2.addView(text("2. Avisos de páginas web", 21f, true))
+    b2.addView(text("Algunas páginas piden “Permitir notificaciones” y después mandan avisos falsos de virus o premios. Apaga los avisos de los sitios en cada navegador.", 17f))
+    val list = WebShield.installedBrowsers(this)
+    if (list.isEmpty()) b2.addView(text("No encontré navegadores instalados.", 17f, false, Col.GRIS))
+    for ((pkg, name) in list) {
+        b2.addView(bigButton("Apagar avisos de $name", Col.BLANCO, Col.TINTA) {
+            say("Apaga “Sitios” o “Notificaciones de sitios”. Si quieres, apaga todo.", "info")
+            acc.open(
+                Intent(Settings.ACTION_APP_NOTIFICATION_SETTINGS).putExtra(Settings.EXTRA_APP_PACKAGE, pkg),
+                Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS, Uri.parse("package:$pkg"))
+            )
+        }, full())
+    }
+    c.addView(b2, full())
+
+    // 3. Instalaciones desde páginas
+    val b3 = card()
+    b3.addView(text("3. Instalar desde páginas o mensajes", 21f, true))
+    b3.addView(text("Si dice “Permitido” en el navegador, WhatsApp o Archivos, cualquier página puede instalar cosas. Déjalo todo en “No permitido”.", 17f))
+    b3.addView(bigButton("Revisar quién puede instalar apps", Col.BLANCO, Col.TINTA) {
+        say("Toca cada app que diga Permitido y apágala.", "info")
+        acc.open(Intent(Settings.ACTION_MANAGE_UNKNOWN_APP_SOURCES), Intent(Settings.ACTION_SECURITY_SETTINGS))
+    }, full())
+    c.addView(b3, full())
+
+    c.addView(text("Los anuncios dentro de los videos de YouTube no se pueden bloquear así. Si un anuncio te dice que instales algo, no lo hagas: si aparece una app nueva, esta app te pregunta y le avisa a ${prefs.helperName}.", 16f, false, Col.GRIS), full())
 }

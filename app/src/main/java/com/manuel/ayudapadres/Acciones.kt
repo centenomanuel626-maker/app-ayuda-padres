@@ -32,7 +32,7 @@ class Acciones(private val a: MainActivity) {
 
     /** Botones que solo muestran algo dentro de la app y funcionan igual en modo práctica. */
     private val harmless = setOf(
-        "nointernet", "lento", "quitar", "seguridad", "lupa", "medicinas", "familia", "aprender", "bateria", "espacio"
+        "nointernet", "web", "lento", "quitar", "seguridad", "lupa", "medicinas", "familia", "aprender", "bateria", "espacio"
     )
 
     init {
@@ -90,6 +90,7 @@ class Acciones(private val a: MainActivity) {
                 open(Intent(if (Build.VERSION.SDK_INT >= 29) Settings.Panel.ACTION_WIFI else Settings.ACTION_WIFI_SETTINGS))
             }
             "nointernet" -> a.showDiag()
+            "web" -> a.showWebProtection()
             "bluetooth" -> {
                 guide("Prende el interruptor y toca el nombre de tus audífonos o del carro.")
                 open(Intent(Settings.ACTION_BLUETOOTH_SETTINGS))

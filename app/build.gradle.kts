@@ -40,6 +40,8 @@ android {
         versionName = "1.0.$run"
         buildConfigField("String", "SUPABASE_URL", "\"${secret("SUPABASE_URL")}\"")
         buildConfigField("String", "SUPABASE_ANON_KEY", "\"${secret("SUPABASE_ANON_KEY")}\"")
+        // Teléfono de quien ayuda, ya puesto en la app (secreto HELPER_PHONE de GitHub).
+        buildConfigField("String", "HELPER_PHONE", "\"${secret("HELPER_PHONE").replace("\"", "")}\"")
     }
 
     signingConfigs {

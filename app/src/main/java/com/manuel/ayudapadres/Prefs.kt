@@ -34,7 +34,7 @@ class Prefs(context: Context) {
         set(v) = putStr("helperName", v)
 
     var helperPhone: String
-        get() = str("helperPhone")
+        get() = str("helperPhone").ifBlank { BuildConfig.HELPER_PHONE }
         set(v) = putStr("helperPhone", v)
 
     /** Código secreto que une los celulares de la familia en Supabase. */

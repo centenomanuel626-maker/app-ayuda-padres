@@ -200,7 +200,7 @@ class PanelActivity : Activity() {
         val missing = d.optString("missing", "")
         if (missing.isNotEmpty() && missing != "null") {
             pill(box, "Permisos", "Faltan", Col.ROJO, Col.ROJO_SUAVE)
-            box.addView(text("Falta: $missing. Sin esto la emergencia o los avisos pueden fallar. Entra con AnyDesk y actívalo en la configuración.", 15f, false, Col.ROJO), full())
+            box.addView(text("Falta: $missing. Sin esto la emergencia o los avisos pueden fallar. Entra con TeamViewer y actívalo en la configuración.", 15f, false, Col.ROJO), full())
         } else if (d.has("missing")) {
             pill(box, "Permisos", "Completos", Col.VERDE, Col.VERDE_SUAVE)
         }
@@ -232,11 +232,11 @@ class PanelActivity : Activity() {
                 }.start()
             }, full())
         }
-        box.addView(bigButton("Entrar con AnyDesk", Col.BLANCO, Col.TINTA) {
-            val li = packageManager.getLaunchIntentForPackage("com.anydesk.anydeskandroid")
+        box.addView(bigButton("Entrar con TeamViewer", Col.BLANCO, Col.TINTA) {
+            val li = packageManager.getLaunchIntentForPackage("com.teamviewer.teamviewer.market.mobile")
             if (li != null) startActivity(li)
             else try {
-                startActivity(Intent(Intent.ACTION_VIEW, Uri.parse("market://details?id=com.anydesk.anydeskandroid")))
+                startActivity(Intent(Intent.ACTION_VIEW, Uri.parse("market://details?id=com.teamviewer.teamviewer.market.mobile")))
             } catch (e: Exception) { }
         }, full())
         c.addView(box, full())

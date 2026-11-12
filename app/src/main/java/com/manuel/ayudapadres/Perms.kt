@@ -113,11 +113,11 @@ object Perms {
                     } catch (e: Exception) { }
                 })
         }
-        out += Item("AnyDesk instalado", "Para la ayuda a distancia",
-            { x -> x.packageManager.getLaunchIntentForPackage("com.anydesk.anydeskandroid") != null },
+        out += Item("TeamViewer QuickSupport instalado", "Para la ayuda a distancia",
+            { x -> x.packageManager.getLaunchIntentForPackage("com.teamviewer.quicksupport.market") != null },
             { x -> settings(x,
-                Intent(Intent.ACTION_VIEW, Uri.parse("market://details?id=com.anydesk.anydeskandroid")),
-                Intent(Intent.ACTION_VIEW, Uri.parse("https://play.google.com/store/apps/details?id=com.anydesk.anydeskandroid"))) })
+                Intent(Intent.ACTION_VIEW, Uri.parse("market://details?id=com.teamviewer.quicksupport.market")),
+                Intent(Intent.ACTION_VIEW, Uri.parse("https://play.google.com/store/apps/details?id=com.teamviewer.quicksupport.market"))) })
         return out
     }
 }

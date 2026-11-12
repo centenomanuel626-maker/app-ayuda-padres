@@ -30,7 +30,7 @@ object SecurityCheck {
         "com.samsung.android.knox", "com.sec.enterprise"
     )
     private val remoteApps = mapOf(
-        "com.teamviewer.quicksupport.market" to "TeamViewer QuickSupport",
+        "com.anydesk.anydeskandroid" to "AnyDesk",
         "com.teamviewer.host.market" to "TeamViewer Host",
         "com.rsupport.mvagent" to "Mobizen",
         "com.sand.airdroid" to "AirDroid",
@@ -142,7 +142,7 @@ object SecurityCheck {
         }
         val readers = (acc + listeners).distinct().filter { r ->
             r != ctx.packageName && knownAccessibility.none { r.startsWith(it) } &&
-                r != "com.anydesk.anydeskandroid" && !r.startsWith("com.google.android") && !r.startsWith("com.samsung.android")
+                !r.startsWith("com.teamviewer") && !r.startsWith("com.google.android") && !r.startsWith("com.samsung.android")
         }
         out += if (readers.isNotEmpty()) Item("Apps que leen la pantalla", Level.WARN,
             "Pueden ver lo que escribes o tus mensajes: " + readers.joinToString { label(ctx, it) })
@@ -152,11 +152,11 @@ object SecurityCheck {
         val remotes = remoteApps.filterKeys { installed(ctx, it) }.values.toList()
         val spies = InstallWatch.launcherApps(ctx).keys.filter { pkg -> spyWords.any { pkg.lowercase().contains(it) } }
             .map { label(ctx, it) }
-        val anydesk = installed(ctx, "com.anydesk.anydeskandroid")
+        val family = installed(ctx, "com.teamviewer.quicksupport.market")
         out += when {
             spies.isNotEmpty() -> Item("Control remoto", Level.BAD, "Parece una app espía: " + spies.joinToString())
             remotes.isNotEmpty() -> Item("Control remoto", Level.WARN, "Apps para controlar el celular a distancia: " + remotes.joinToString())
-            anydesk -> Item("Control remoto", Level.OK, "Solo AnyDesk, para la ayuda de la familia")
+            family -> Item("Control remoto", Level.OK, "Solo TeamViewer QuickSupport, para la ayuda de la familia")
             else -> Item("Control remoto", Level.OK, "Ninguna app de control remoto")
         }
 

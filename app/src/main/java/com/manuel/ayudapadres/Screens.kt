@@ -179,7 +179,7 @@ private data class Quad(val color: Int, val soft: Int, val title: String, val su
 // ---------------- Quitar apps que no uso ----------------
 
 private val protectedApps = setOf(
-    "com.whatsapp", "com.whatsapp.w4b", "com.anydesk.anydeskandroid", "com.android.vending",
+    "com.whatsapp", "com.whatsapp.w4b", "com.teamviewer.quicksupport.market", "com.teamviewer.host.market", "com.android.vending",
     "com.google.android.dialer", "com.samsung.android.dialer", "com.android.dialer", "com.android.contacts",
     "com.samsung.android.messaging", "com.google.android.apps.messaging", "com.android.mms",
     "com.android.settings", "com.sec.android.app.camera", "com.android.camera", "com.google.android.GoogleCamera",
@@ -241,7 +241,7 @@ fun MainActivity.showUnused() {
         box.addView(bigButton(if (system) "Desactivar" else "Quitar", Col.BLANCO, Col.ROJO) { acc.uninstall(pkg) }, full())
         c.addView(box, full())
     }
-    c.addView(text("WhatsApp, el teléfono, la cámara, AnyDesk y las apps que ${prefs.helperName} aprobó nunca aparecen aquí.", 16f, false, Col.GRIS), full())
+    c.addView(text("WhatsApp, el teléfono, la cámara, TeamViewer y las apps que ${prefs.helperName} aprobó nunca aparecen aquí.", 16f, false, Col.GRIS), full())
 }
 
 // ---------------- Celular lento ----------------

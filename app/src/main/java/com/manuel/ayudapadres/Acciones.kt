@@ -337,21 +337,21 @@ class Acciones(private val a: MainActivity) {
 
     // ---------------- Ayuda ----------------
 
-    /** Antes de abrir AnyDesk pregunta con quién habla: es la herramienta favorita de los estafadores. */
+    /** Antes de abrir TeamViewer pregunta con quién habla: es la herramienta favorita de los estafadores. */
     private fun remote() {
         Speaker.say(a, "¿Estás hablando con $helper ahora mismo?")
         a.sheet { c, d ->
             c.addView(a.heading("¿Estás hablando con $helper ahora mismo?"))
-            c.addView(a.text("El número de AnyDesk solo se le da a $helper. Los bancos, la compañía de teléfono o el técnico nunca te lo piden: si alguien te lo pide, es una estafa.", 20f))
+            c.addView(a.text("El ID de TeamViewer solo se le da a $helper. Los bancos, la compañía de teléfono o el técnico nunca te lo piden: si alguien te lo pide, es una estafa.", 20f))
             c.addView(a.bigButton("Sí, estoy hablando con $helper", Col.VERDE) {
                 d.dismiss()
-                if (Cloud.configured(a)) Thread { Cloud.alert(a.applicationContext, "info", "Abrió “Ayuda a distancia” (AnyDesk).") }.start()
-                openAnyDesk()
+                if (Cloud.configured(a)) Thread { Cloud.alert(a.applicationContext, "info", "Abrió “Ayuda a distancia” (TeamViewer).") }.start()
+                openRemoteHelp()
             }, a.full())
             c.addView(a.bigButton("No, me lo pidió otra persona", Col.ROJO) {
                 d.dismiss()
                 a.say("No le des ningún número. Cuelga y llama a $helper.", "warn")
-                if (Cloud.configured(a)) Thread { Cloud.alert(a.applicationContext, "bad", "Alguien le pidió abrir AnyDesk y dijo que NO era $helper. Posible estafa: llámale.") }.start()
+                if (Cloud.configured(a)) Thread { Cloud.alert(a.applicationContext, "bad", "Alguien le pidió abrir TeamViewer y dijo que NO era $helper. Posible estafa: llámale.") }.start()
             }, a.full())
             c.addView(a.bigButton("Primero llamar a $helper", Col.BLANCO, Col.TINTA) {
                 d.dismiss()
@@ -414,14 +414,14 @@ class Acciones(private val a: MainActivity) {
         return false
     }
 
-    private fun openAnyDesk() {
-        val pkg = "com.anydesk.anydeskandroid"
+    private fun openRemoteHelp() {
+        val pkg = "com.teamviewer.quicksupport.market"
         val li = a.packageManager.getLaunchIntentForPackage(pkg)
         if (li != null) {
-            guide("Dile a $helper el número que aparece en AnyDesk. Cuando se conecte, toca “Aceptar”.")
+            guide("Dile a $helper el número de “Tu ID” que aparece en TeamViewer. Cuando se conecte, toca “Permitir”.")
             open(li)
         } else {
-            a.say("Falta instalar AnyDesk. $helper te ayuda.", "warn")
+            a.say("Falta instalar TeamViewer QuickSupport. $helper te ayuda.", "warn")
             open(
                 Intent(Intent.ACTION_VIEW, Uri.parse("market://details?id=$pkg")),
                 Intent(Intent.ACTION_VIEW, Uri.parse("https://play.google.com/store/apps/details?id=$pkg"))

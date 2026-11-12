@@ -32,7 +32,7 @@ Para usar otro proyecto, pega `supabase/schema.sql` en su **SQL Editor** y crea 
 4. Agrega sus **medicinas** (nombre y hora) y sus **contactos con foto**.
 5. Marca las **apps aprobadas** (WhatsApp, el banco, etc.) y, si quieres, prende el **modo pantalla de inicio**.
 6. Al final, **apaga “Instalar apps desconocidas”** para el navegador, los archivos y la app que usaste para pasar el APK.
-7. Instala **AnyDesk** desde la Play Store para la ayuda a distancia.
+7. Instala **TeamViewer QuickSupport** desde la Play Store en su celular (y **TeamViewer Remote Control** en el tuyo) para la ayuda a distancia.
 
 Para volver a la configuración: en la pantalla principal, **mantén presionado “Hola, mamá”** y escribe el PIN.
 

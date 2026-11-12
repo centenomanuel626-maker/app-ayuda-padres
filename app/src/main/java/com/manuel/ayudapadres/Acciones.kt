@@ -204,8 +204,10 @@ class Acciones(private val a: MainActivity) {
             a.say("Falta el número de $name. Pídele a $helper que lo configure.", "warn")
             return
         }
-        val granted = a.checkSelfPermission(Manifest.permission.CALL_PHONE) == PackageManager.PERMISSION_GRANTED
         Speaker.say(a, "Llamando a $name")
+        // Primero por WhatsApp: es gratis aunque estén en países distintos.
+        if (whatsappCall(number, video = false)) return
+        val granted = a.checkSelfPermission(Manifest.permission.CALL_PHONE) == PackageManager.PERMISSION_GRANTED
         open(Intent(if (granted) Intent.ACTION_CALL else Intent.ACTION_DIAL, Uri.parse("tel:" + number.trim())))
     }
 
@@ -369,7 +371,7 @@ class Acciones(private val a: MainActivity) {
                 d.dismiss()
                 Toast.makeText(a, steps, Toast.LENGTH_LONG).show()
                 Speaker.say(a, steps)
-                if (!whatsappVideoCall(p.helperPhone)) {
+                if (!whatsappCall(p.helperPhone, video = true)) {
                     guide("Toca el dibujo de la cámara arriba a la derecha para la videollamada.")
                     if (!whatsapp(p.helperPhone, null)) a.say("No encontré WhatsApp en este celular.", "warn")
                 }
@@ -382,15 +384,16 @@ class Acciones(private val a: MainActivity) {
      * Abre la videollamada de WhatsApp directamente. Busca el contacto de Manuel en los contactos
      * del celular (WhatsApp agrega una fila de "videollamada" por cada contacto que lo usa).
      */
-    private fun whatsappVideoCall(number: String): Boolean {
+    private fun whatsappCall(number: String, video: Boolean): Boolean {
         if (a.checkSelfPermission(Manifest.permission.READ_CONTACTS) != PackageManager.PERMISSION_GRANTED) return false
         val digits = number.filter { it.isDigit() }
         if (digits.length < 7) return false
         val tail = digits.takeLast(10)
         for (pkg in listOf("com.whatsapp", "com.whatsapp.w4b")) {
             if (!installed(pkg)) continue
-            val mime = if (pkg == "com.whatsapp") "vnd.android.cursor.item/vnd.com.whatsapp.video.call"
-                       else "vnd.android.cursor.item/vnd.com.whatsapp.w4b.video.call"
+            val kind = if (video) "video.call" else "voip.call"
+            val mime = if (pkg == "com.whatsapp") "vnd.android.cursor.item/vnd.com.whatsapp.$kind"
+                       else "vnd.android.cursor.item/vnd.com.whatsapp.w4b.$kind"
             try {
                 a.contentResolver.query(
                     android.provider.ContactsContract.Data.CONTENT_URI,
@@ -467,34 +470,13 @@ class Acciones(private val a: MainActivity) {
             if (Cloud.configured(a)) {
                 Thread { Cloud.alert(a.applicationContext, "emergencia", msg, loc?.latitude, loc?.longitude) }.start()
             }
-            val smsSent = sendSms(p.helperPhone, msg)
-            if (smsSent) {
-                // Sin pasos para la persona: el SMS con la ubicación ya salió; ahora la llamada directa.
-                a.say("Le mandé tu ubicación a $helper por mensaje. Ahora lo llamo.")
-                call(p.helperPhone, helper)
+            // La ubicación va al panel de Manuel y en el mensaje de WhatsApp; la llamada sale sola por WhatsApp.
+            if (whatsappCall(p.helperPhone, video = false)) {
+                a.say("Llamando a $helper por WhatsApp. Ya le mandé tu ubicación a su panel.")
             } else {
-                // Sin permiso de SMS: WhatsApp con el mensaje listo (hay que tocar enviar).
                 a.say("Toca el botón de enviar para que $helper reciba tu ubicación. Después llámalo.", "warn")
-                if (!whatsapp(p.helperPhone, msg)) {
-                    call(p.helperPhone, helper)
-                }
+                if (!whatsapp(p.helperPhone, msg)) call(p.helperPhone, helper)
             }
-        }
-    }
-
-    /** Envía un SMS sin abrir ninguna app. Devuelve false si falta el permiso o el número. */
-    private fun sendSms(number: String, text: String): Boolean {
-        if (number.isBlank()) return false
-        if (a.checkSelfPermission(Manifest.permission.SEND_SMS) != PackageManager.PERMISSION_GRANTED) return false
-        return try {
-            @Suppress("DEPRECATION")
-            val sms = if (Build.VERSION.SDK_INT >= 31) a.getSystemService(android.telephony.SmsManager::class.java)
-                      else android.telephony.SmsManager.getDefault()
-            val parts = sms.divideMessage(text)
-            sms.sendMultipartTextMessage(number.trim(), null, parts, null, null)
-            true
-        } catch (e: Exception) {
-            false
         }
     }
 

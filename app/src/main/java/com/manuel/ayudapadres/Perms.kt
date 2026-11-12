@@ -56,7 +56,7 @@ object Perms {
         else if (Build.VERSION.SDK_INT >= 28 &&
             !ctx.getSystemService(android.location.LocationManager::class.java).isLocationEnabled) out += "GPS apagado"
         if (!has(Manifest.permission.CALL_PHONE)) out += "Llamadas"
-        if (!has(Manifest.permission.SEND_SMS)) out += "SMS"
+        if (!has(Manifest.permission.READ_CONTACTS)) out += "Contactos (llamadas por WhatsApp)"
         if (Build.VERSION.SDK_INT >= 33 && !has(Manifest.permission.POST_NOTIFICATIONS)) out += "Notificaciones"
         if (!ctx.getSystemService(PowerManager::class.java).isIgnoringBatteryOptimizations(ctx.packageName)) out += "Segundo plano"
         return out
@@ -81,9 +81,8 @@ object Perms {
         if (role != "padres") return out
 
         out += runtime(Manifest.permission.CALL_PHONE, "Hacer llamadas", "Para llamar con un solo toque")
-        out += runtime(Manifest.permission.SEND_SMS, "Enviar SMS", "La emergencia manda la ubicación sola, sin tocar nada")
         out += runtime(Manifest.permission.ACCESS_FINE_LOCATION, "Ubicación", "Para el botón de Emergencia")
-        out += runtime(Manifest.permission.READ_CONTACTS, "Contactos", "Para la alerta de estafas y “Mi familia”")
+        out += runtime(Manifest.permission.READ_CONTACTS, "Contactos", "Para llamar gratis por WhatsApp, la alerta de estafas y “Mi familia”")
         out += runtime(Manifest.permission.CAMERA, "Cámara", "Para la lupa")
         out += Item("Modificar ajustes del sistema", "Brillo, letra, girar pantalla y tiempo de pantalla",
             { x -> Settings.System.canWrite(x) },

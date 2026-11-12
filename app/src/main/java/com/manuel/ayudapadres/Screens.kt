@@ -389,41 +389,24 @@ fun MainActivity.showFamily() {
 
 // ---------------- Aprender (tutorial y modo práctica) ----------------
 
+/** "Aprender a usar la app": recorrido guiado, guías paso a paso y modo práctica. */
+@Suppress("UNUSED_PARAMETER")
 fun MainActivity.showTutorial(step: Int) {
     screen = "tutorial"
-    val h = prefs.helperName
-    val pages = listOf(
-        "👋" to "Esta app te ayuda con tu celular. Toca un color para ver sus botones.",
-        "📞" to "Abajo siempre están “Llamar a $h”, en verde, y “Emergencia”, en rojo.",
-        "😌" to "No te preocupes: con esta app no puedes dañar nada. Si algo no funciona, llama a $h.",
-        "🎤" to "Puedes hablarle a la app: toca el micrófono y di, por ejemplo, “no tengo internet”.",
-        "🚫" to "Nunca instales apps ni “actualizaciones” que te manden por mensaje, aunque digan que son de $h. $h las instala él mismo.",
-        "🎓" to "Para practicar sin cambiar nada, prende el modo práctica. Los botones solo te dirán para qué sirven."
-    )
-    val s = step.coerceIn(0, pages.size - 1)
     val c = page()
-    if (prefs.tutorialDone) header(c, "Aprender") { backToCategory() }
-    c.addView(text("Paso ${s + 1} de ${pages.size}", 18f, false, Col.GRIS))
-    val emoji = text(pages[s].first, 90f)
-    emoji.gravity = Gravity.CENTER
-    c.addView(emoji, full())
-    c.addView(text(pages[s].second, 26f, true), full())
-    Speaker.say(this, pages[s].second)
-    if (s < pages.size - 1) {
-        c.addView(bigButton("Siguiente", Col.AZUL) { showTutorial(s + 1) }, full())
-    } else {
-        c.addView(bigButton(if (prefs.practice) "Apagar el modo práctica" else "Prender el modo práctica", Col.AMARILLO) {
-            prefs.practice = !prefs.practice
-            prefs.tutorialDone = true
-            showHome()
-            say(if (prefs.practice) "Modo práctica prendido. Toca lo que quieras." else "Listo, los botones ya funcionan de verdad.")
-        }, full())
-        c.addView(bigButton("Terminar", Col.VERDE) {
-            prefs.tutorialDone = true
-            showHome()
-        }, full())
+    header(c, "Aprender") { backToCategory() }
+    c.addView(text("Elige qué quieres aprender. La app oscurece la pantalla y hace brillar el botón que tienes que tocar.", 20f), full())
+    c.addView(bigButton("👀 Recorrido por la app", Col.AZUL) { startTour() }, full())
+    c.addView(text("Guías paso a paso", 22f, true), full())
+    for ((id, label) in guides(prefs.helperName)) {
+        c.addView(rowButton("👆", label, "", Col.VERDE_AZUL) { startGuide(id) }, full())
     }
-    if (s > 0) c.addView(bigButton("Anterior", Col.BLANCO, Col.TINTA) { showTutorial(s - 1) }, full())
+    c.addView(text("Practicar sin miedo", 22f, true), full())
+    c.addView(bigButton(if (prefs.practice) "Apagar el modo práctica" else "Prender el modo práctica", Col.AMARILLO) {
+        prefs.practice = !prefs.practice
+        say(if (prefs.practice) "Modo práctica prendido: los botones solo te dicen para qué sirven." else "Listo, los botones ya funcionan de verdad.")
+        showTutorial(0)
+    }, full())
 }
 
 // ---------------- Bloquear anuncios y ventanas ----------------

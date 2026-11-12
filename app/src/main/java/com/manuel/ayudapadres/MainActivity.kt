@@ -30,6 +30,9 @@ class MainActivity : Activity() {
     private val hideBanner = Runnable { banner.visibility = View.GONE }
 
     /** Pantalla actual: "home", "cat", o una subpantalla ("diag", "seguridad", "quitar"...). */
+    /** Tutorial guiado activo (null si no hay). */
+    var coach: Coach? = null
+
     var screen = "home"
     var cat = "internet"
 
@@ -52,7 +55,7 @@ class MainActivity : Activity() {
         buildLayout()
         ReportJobService.schedule(this)
         Alarms.scheduleAll(this)
-        if (!prefs.tutorialDone) showTutorial(0) else showHome()
+        showHome()
         handleIntent(intent)
     }
 
@@ -89,7 +92,9 @@ class MainActivity : Activity() {
     override fun onResume() {
         super.onResume()
         if (!::acc.isInitialized) return
-        refresh()
+        if (coach == null) refresh()
+        // "Ver el tutorial otra vez" desde la configuración.
+        if (!prefs.tutorialDone && coach == null) scroll.post { startTour() }
         Thread {
             InstallWatch.check(applicationContext)
         }.start()
@@ -135,6 +140,8 @@ class MainActivity : Activity() {
         dock.setBackgroundColor(Col.BLANCO)
         val call = bigButton("📞 Llamar a ${prefs.helperName}", Col.VERDE) { acc.run("llamar") }
         val sos = bigButton("🆘 Emergencia", Col.ROJO) { acc.run("emergencia") }
+        call.tag = "dock:call"
+        sos.tag = "dock:sos"
         call.minHeight = dp(76)
         sos.minHeight = dp(76)
         dock.addView(call, LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f))
@@ -209,12 +216,14 @@ class MainActivity : Activity() {
         mic.background = rounded(Col.BLANCO, 99, Col.LINEA)
         mic.contentDescription = "Hablarle a la app"
         mic.setOnClickListener { listen() }
+        mic.tag = "mic"
         top.addView(mic, LinearLayout.LayoutParams(dp(68), dp(68)))
         val gear = text("⚙️", 22f)
         gear.gravity = Gravity.CENTER
         gear.background = rounded(Col.BLANCO, 99, Col.LINEA)
         gear.contentDescription = "Configuración (con PIN)"
         gear.setOnClickListener { acc.openSettings() }
+        gear.tag = "gear"
         top.addView(gear, LinearLayout.LayoutParams(dp(48), dp(48)))
         c.addView(top, full())
 
@@ -231,10 +240,12 @@ class MainActivity : Activity() {
 
         if (DateUtils.isToday(prefs.lastEstoyBien)) {
             val ok = card(Col.VERDE_SUAVE, Col.VERDE)
+            ok.tag = "estoybien"
             ok.addView(text("✅ Ya le avisaste a ${prefs.helperName} que estás bien.", 20f))
             c.addView(ok, full())
         } else {
             val ok = card(Col.VERDE_SUAVE, Col.VERDE)
+            ok.tag = "estoybien"
             ok.addView(text("¿Todo bien hoy?", 20f))
             ok.addView(text("Toca aquí: Estoy bien ✅", 22f, true))
             ok.isClickable = true
@@ -247,11 +258,11 @@ class MainActivity : Activity() {
         while (i < visible.size) {
             val row = hbox(12)
             val a = visible[i]
-            row.addView(tile(a.emoji, a.name, a.color) { showCategory(a.id) },
+            row.addView(tile(a.emoji, a.name, a.color) { showCategory(a.id) }.also { it.tag = "cat:" + a.id },
                 LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.MATCH_PARENT, 1f))
             if (i + 1 < visible.size) {
                 val b = visible[i + 1]
-                row.addView(tile(b.emoji, b.name, b.color) { showCategory(b.id) },
+                row.addView(tile(b.emoji, b.name, b.color) { showCategory(b.id) }.also { it.tag = "cat:" + b.id },
                     LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.MATCH_PARENT, 1f))
             }
             c.addView(row, full())
@@ -316,7 +327,8 @@ class MainActivity : Activity() {
                 "llamar", "estoybien" -> Col.VERDE
                 else -> category.color
             }
-            c.addView(rowButton(b.emoji, b.title, b.sub, color, st?.first, st?.second ?: false) { acc.run(bid) }, full())
+            c.addView(rowButton(b.emoji, b.title, b.sub, color, st?.first, st?.second ?: false) { acc.run(bid) }
+                .also { it.tag = "btn:$bid" }, full())
         }
     }
 
@@ -346,6 +358,10 @@ class MainActivity : Activity() {
 
     @Deprecated("Uso del botón atrás clásico")
     override fun onBackPressed() {
+        coach?.let {
+            it.close()
+            return
+        }
         when {
             screen == "home" -> if (!prefs.launcherMode) super.onBackPressed()
             screen == "cat" -> showHome()

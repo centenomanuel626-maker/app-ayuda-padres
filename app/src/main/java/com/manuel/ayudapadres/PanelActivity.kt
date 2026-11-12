@@ -197,6 +197,13 @@ class PanelActivity : Activity() {
             else -> Triple(Col.GRIS, Col.FONDO, "Sin revisar")
         }
         pill(box, "Seguridad", sl, sc, ss)
+        val missing = d.optString("missing", "")
+        if (missing.isNotEmpty() && missing != "null") {
+            pill(box, "Permisos", "Faltan", Col.ROJO, Col.ROJO_SUAVE)
+            box.addView(text("Falta: $missing. Sin esto la emergencia o los avisos pueden fallar. Entra con AnyDesk y actívalo en la configuración.", 15f, false, Col.ROJO), full())
+        } else if (d.has("missing")) {
+            pill(box, "Permisos", "Completos", Col.VERDE, Col.VERDE_SUAVE)
+        }
         val ringer = d.optString("ringer", "")
         if (ringer.isNotEmpty() && ringer != "null") pill(box, "Sonido", ringer, Col.TINTA, Col.FONDO)
         val seen = millis(d.optString("last_seen"))

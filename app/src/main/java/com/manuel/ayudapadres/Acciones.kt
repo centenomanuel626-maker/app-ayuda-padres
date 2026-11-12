@@ -467,10 +467,34 @@ class Acciones(private val a: MainActivity) {
             if (Cloud.configured(a)) {
                 Thread { Cloud.alert(a.applicationContext, "emergencia", msg, loc?.latitude, loc?.longitude) }.start()
             }
-            a.say("Toca el botón de enviar para que $helper reciba tu ubicación.")
-            if (!whatsapp(p.helperPhone, msg)) {
-                open(Intent(Intent.ACTION_SENDTO, Uri.parse("smsto:" + p.helperPhone)).putExtra("sms_body", msg))
+            val smsSent = sendSms(p.helperPhone, msg)
+            if (smsSent) {
+                // Sin pasos para la persona: el SMS con la ubicación ya salió; ahora la llamada directa.
+                a.say("Le mandé tu ubicación a $helper por mensaje. Ahora lo llamo.")
+                call(p.helperPhone, helper)
+            } else {
+                // Sin permiso de SMS: WhatsApp con el mensaje listo (hay que tocar enviar).
+                a.say("Toca el botón de enviar para que $helper reciba tu ubicación. Después llámalo.", "warn")
+                if (!whatsapp(p.helperPhone, msg)) {
+                    call(p.helperPhone, helper)
+                }
             }
+        }
+    }
+
+    /** Envía un SMS sin abrir ninguna app. Devuelve false si falta el permiso o el número. */
+    private fun sendSms(number: String, text: String): Boolean {
+        if (number.isBlank()) return false
+        if (a.checkSelfPermission(Manifest.permission.SEND_SMS) != PackageManager.PERMISSION_GRANTED) return false
+        return try {
+            @Suppress("DEPRECATION")
+            val sms = if (Build.VERSION.SDK_INT >= 31) a.getSystemService(android.telephony.SmsManager::class.java)
+                      else android.telephony.SmsManager.getDefault()
+            val parts = sms.divideMessage(text)
+            sms.sendMultipartTextMessage(number.trim(), null, parts, null, null)
+            true
+        } catch (e: Exception) {
+            false
         }
     }
 

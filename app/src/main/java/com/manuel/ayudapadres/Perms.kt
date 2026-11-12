@@ -48,6 +48,20 @@ object Perms {
         return mode == AppOpsManager.MODE_ALLOWED
     }
 
+    /** Permisos sin los que la emergencia o los avisos fallan. Se reportan al panel de Manuel. */
+    fun missingCritical(ctx: android.content.Context): List<String> {
+        val out = ArrayList<String>()
+        fun has(perm: String) = ctx.checkSelfPermission(perm) == PackageManager.PERMISSION_GRANTED
+        if (!has(Manifest.permission.ACCESS_FINE_LOCATION) && !has(Manifest.permission.ACCESS_COARSE_LOCATION)) out += "Ubicación"
+        else if (Build.VERSION.SDK_INT >= 28 &&
+            !ctx.getSystemService(android.location.LocationManager::class.java).isLocationEnabled) out += "GPS apagado"
+        if (!has(Manifest.permission.CALL_PHONE)) out += "Llamadas"
+        if (!has(Manifest.permission.SEND_SMS)) out += "SMS"
+        if (Build.VERSION.SDK_INT >= 33 && !has(Manifest.permission.POST_NOTIFICATIONS)) out += "Notificaciones"
+        if (!ctx.getSystemService(PowerManager::class.java).isIgnoringBatteryOptimizations(ctx.packageName)) out += "Segundo plano"
+        return out
+    }
+
     fun list(a: Activity, role: String): List<Item> {
         val out = ArrayList<Item>()
         if (Build.VERSION.SDK_INT >= 33) {
@@ -67,6 +81,7 @@ object Perms {
         if (role != "padres") return out
 
         out += runtime(Manifest.permission.CALL_PHONE, "Hacer llamadas", "Para llamar con un solo toque")
+        out += runtime(Manifest.permission.SEND_SMS, "Enviar SMS", "La emergencia manda la ubicación sola, sin tocar nada")
         out += runtime(Manifest.permission.ACCESS_FINE_LOCATION, "Ubicación", "Para el botón de Emergencia")
         out += runtime(Manifest.permission.READ_CONTACTS, "Contactos", "Para la alerta de estafas y “Mi familia”")
         out += runtime(Manifest.permission.CAMERA, "Cámara", "Para la lupa")

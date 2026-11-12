@@ -99,6 +99,16 @@ class SettingsActivity : Activity() {
             c.addView(xi, full())
         }
 
+        if (padres) {
+            val missing = Perms.missingCritical(this)
+            if (missing.isNotEmpty()) {
+                val m = card(Col.ROJO_SUAVE, Col.ROJO)
+                m.addView(text("Falta para que la emergencia funcione: " + missing.joinToString(", "), 19f, true, Col.ROJO))
+                m.addView(text("Actívalo abajo, en Permisos.", 16f))
+                c.addView(m, full())
+            }
+        }
+
         section(c, "Permisos")
         c.addView(text("Toca los que tengan ❌ y acepta. Se hace una sola vez.", 17f, false, Col.GRIS), full())
         for (item in Perms.list(this, prefs.role)) {

@@ -81,6 +81,7 @@ class ReportJobService : JobService() {
                 else -> "Silencio"
             }
             val status = JSONObject().put("battery", pct).put("charging", charging).put("network", net).put("ringer", ringer)
+                .put("missing", Perms.missingCritical(ctx).joinToString(", "))
             if (p.lastSecurity.isNotEmpty()) status.put("security", p.lastSecurity)
             Cloud.reportStatus(ctx, status)
 

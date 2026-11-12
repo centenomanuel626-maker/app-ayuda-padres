@@ -100,12 +100,14 @@ class ReportJobService : JobService() {
             if (!Cloud.configured(ctx)) return
             val alerts = Cloud.alerts(ctx, p.lastAlertId, 20) ?: return
             var maxId = p.lastAlertId
+            // Solo la primera lectura se salta los avisos viejos; si la tabla estaba vacía, desde ya se avisa todo.
+            val first = !p.alertsReady
             // Vienen del más nuevo al más viejo.
             for (i in alerts.length() - 1 downTo 0) {
                 val a = alerts.getJSONObject(i)
                 val id = a.getLong("id")
                 if (id > maxId) maxId = id
-                if (p.lastAlertId == 0L) continue // primera vez: no inundar con avisos viejos
+                if (first) continue // primera vez: no inundar con avisos viejos
                 val kind = a.optString("kind")
                 if (kind == "ok" || kind == "info") continue
                 val who = a.optString("device_label")
@@ -119,6 +121,7 @@ class ReportJobService : JobService() {
                 Notif.show(ctx, Ids.alert(id), if (kind == "warn") Notif.AVISOS else Notif.URGENTE, title, a.optString("text"), tap = open)
             }
             p.lastAlertId = maxId
+            p.alertsReady = true
 
             // Después de las 12:00, avisar una vez si alguien no tocó "Estoy bien" hoy.
             if (LocalTime.now().hour < 12) return

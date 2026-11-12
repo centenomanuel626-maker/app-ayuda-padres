@@ -46,6 +46,7 @@ class PanelActivity : Activity() {
                 val newest = a.getJSONObject(0).getLong("id")
                 if (newest > prefs.lastAlertId) prefs.lastAlertId = newest
             }
+            if (a != null) prefs.alertsReady = true
             runOnUiThread {
                 loading = false
                 if (d == null && a == null) Toast.makeText(this, "No pude conectarme. Revisa el internet.", Toast.LENGTH_LONG).show()

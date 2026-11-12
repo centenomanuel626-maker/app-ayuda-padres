@@ -121,6 +121,11 @@ class Prefs(context: Context) {
         get() = p.getLong("pinLockUntil", 0L)
         set(v) = p.edit().putLong("pinLockUntil", v).apply()
 
+    /** Celular de Manuel: true cuando ya se leyó la lista de avisos al menos una vez. */
+    var alertsReady: Boolean
+        get() = bool("alertsReady")
+        set(v) = putBool("alertsReady", v)
+
     var lastSecurity: String
         get() = str("lastSecurity")
         set(v) = putStr("lastSecurity", v)

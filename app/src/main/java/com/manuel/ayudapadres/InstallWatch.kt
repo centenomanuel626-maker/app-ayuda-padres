@@ -33,7 +33,9 @@ object InstallWatch {
             p.knownApps = current.keys
             return
         }
-        val nuevas = current.keys - known - p.approvedApps
+        // Herramientas de la familia que se instalan durante la configuración: no son sospechosas.
+        val familyTools = setOf("com.teamviewer.quicksupport.market", "com.whatsapp", "com.whatsapp.w4b")
+        val nuevas = current.keys - known - p.approvedApps - familyTools
         p.knownApps = current.keys
         for (pkg in nuevas) {
             val label = current[pkg] ?: pkg

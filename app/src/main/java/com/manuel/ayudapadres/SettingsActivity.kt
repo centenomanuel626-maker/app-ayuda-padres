@@ -167,6 +167,10 @@ class SettingsActivity : Activity() {
             val on = cat.id !in prefs.hiddenCats
             toggleRow(c, cat.emoji, cat.name, "Mostrar en la pantalla principal", on) { show ->
                 prefs.hiddenCats = if (show) prefs.hiddenCats - cat.id else prefs.hiddenCats + cat.id
+                // También en Supabase: si no, el reporte de 15 minutos lo devolvería a como estaba.
+                val cats = prefs.hiddenCats
+                val ctx = applicationContext
+                Thread { Cloud.setHiddenCategories(ctx, prefs.deviceId, cats) }.start()
             }
         }
 

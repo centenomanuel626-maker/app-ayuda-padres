@@ -246,7 +246,14 @@ class MainActivity : Activity() {
             c.addView(text("Usa los botones de abajo si necesitas ayuda.", 20f, false, Col.GRIS))
         }
 
-        if (prefs.launcherMode) showMyAppsSection(c)
+        if (prefs.launcherMode) {
+            showMyAppsSection(c)
+            val exit = text("Salida de emergencia (PIN de ${prefs.helperName})", 15f, false, Col.GRIS)
+            exit.gravity = Gravity.CENTER
+            exit.setPadding(0, dp(24), 0, dp(8))
+            exit.setOnClickListener { acc.exitLauncher() }
+            c.addView(exit, full())
+        }
     }
 
     private fun showMyAppsSection(c: LinearLayout) {

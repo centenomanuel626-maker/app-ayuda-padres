@@ -6,6 +6,7 @@ import android.app.TimePickerDialog
 import android.content.ComponentName
 import android.content.Intent
 import android.content.pm.PackageManager
+import android.os.Build
 import android.os.Bundle
 import android.provider.ContactsContract
 import android.provider.Settings
@@ -62,7 +63,10 @@ class SettingsActivity : Activity() {
             c.addView(editRow("Cómo saluda la app", prefs.parentName) { prefs.parentName = it }, full())
             c.addView(editRow("Quién ayuda", prefs.helperName) { prefs.helperName = it }, full())
             c.addView(editRow("Teléfono de quien ayuda", prefs.helperPhone, numeric = true) { prefs.helperPhone = it }, full())
-            c.addView(editRow("PIN de configuración", if (prefs.pin.isEmpty()) "Sin PIN" else "••••", numeric = true, raw = prefs.pin) { prefs.pin = it }, full())
+            c.addView(editRow("PIN de configuración", if (prefs.pin.isEmpty()) "Sin PIN" else "••••", numeric = true, raw = prefs.pin) {
+                if (it.length >= 4 && it.all { ch -> ch.isDigit() }) prefs.pin = it
+                else Toast.makeText(this, "El PIN debe tener al menos 4 números", Toast.LENGTH_LONG).show()
+            }, full())
         } else {
             c.addView(editRow("Tu nombre", prefs.helperName) { prefs.helperName = it }, full())
         }
@@ -78,6 +82,23 @@ class SettingsActivity : Activity() {
         c.addView(cloud, full())
 
         // ---------- Permisos ----------
+        if (Build.MANUFACTURER.lowercase().let { it.contains("xiaomi") || it.contains("redmi") || it.contains("poco") }) {
+            val xi = card(Col.AMARILLO_SUAVE, Col.AMARILLO)
+            xi.addView(text("Importante en Xiaomi", 20f, true))
+            xi.addView(text("Xiaomi cierra las apps en segundo plano. Si no activas estas dos cosas, no sonarán las medicinas ni llegarán los avisos a tu panel:\n1. Inicio automático: activado.\n2. Ahorro de batería: “Sin restricciones”.", 17f))
+            xi.addView(bigButton("Abrir Inicio automático", Col.AMARILLO) {
+                try {
+                    startActivity(Intent().setComponent(ComponentName("com.miui.securitycenter", "com.miui.permcenter.autostart.AutoStartManagementActivity")))
+                } catch (e: Exception) {
+                    startActivity(Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS, android.net.Uri.parse("package:$packageName")))
+                }
+            }, full())
+            xi.addView(bigButton("Abrir ajustes de batería de la app", Col.BLANCO, Col.TINTA) {
+                startActivity(Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS, android.net.Uri.parse("package:$packageName")))
+            }, full())
+            c.addView(xi, full())
+        }
+
         section(c, "Permisos")
         c.addView(text("Toca los que tengan ❌ y acepta. Se hace una sola vez.", 17f, false, Col.GRIS), full())
         for (item in Perms.list(this, prefs.role)) {
@@ -245,25 +266,7 @@ class SettingsActivity : Activity() {
             .show()
     }
 
-    private fun setLauncher(on: Boolean) {
-        prefs.launcherMode = on
-        packageManager.setComponentEnabledSetting(
-            ComponentName(this, "$packageName.HomeAlias"),
-            if (on) PackageManager.COMPONENT_ENABLED_STATE_ENABLED else PackageManager.COMPONENT_ENABLED_STATE_DISABLED,
-            PackageManager.DONT_KILL_APP
-        )
-        if (on) {
-            Toast.makeText(this, "Elige “Ayuda” como app de inicio predeterminada", Toast.LENGTH_LONG).show()
-            try {
-                startActivity(Intent(Settings.ACTION_HOME_SETTINGS))
-            } catch (e: Exception) { }
-        } else {
-            Toast.makeText(this, "Elige la pantalla de inicio normal del celular", Toast.LENGTH_LONG).show()
-            try {
-                startActivity(Intent(Settings.ACTION_HOME_SETTINGS))
-            } catch (e: Exception) { }
-        }
-    }
+    private fun setLauncher(on: Boolean) = Launcher.set(this, on)
 
     @Deprecated("API clásica de resultados")
     override fun onActivityResult(requestCode: Int, resultCode: Int, data: Intent?) {

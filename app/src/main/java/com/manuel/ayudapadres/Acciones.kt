@@ -508,27 +508,47 @@ class Acciones(private val a: MainActivity) {
 
     // ---------------- Configuración y voz ----------------
 
-    fun openSettings() {
-        if (p.pin.isEmpty()) {
-            a.startActivity(Intent(a, SettingsActivity::class.java))
-            return
-        }
+    /** Pide el PIN; si todavía no hay uno, obliga a crearlo. */
+    fun askPin(titleText: String, onOk: () -> Unit) {
+        val creating = p.pin.isEmpty()
         a.sheet { c, d ->
-            c.addView(a.heading("Configuración"))
-            c.addView(a.text("Solo para $helper. Escribe el PIN.", 20f))
+            c.addView(a.heading(titleText))
+            c.addView(a.text(if (creating) "Crea un PIN de al menos 4 números. Solo $helper debe saberlo." else "Solo para $helper. Escribe el PIN.", 20f))
             val pin = a.input("PIN", numeric = true)
             c.addView(pin, a.full())
-            c.addView(a.bigButton("Entrar", Col.AZUL) {
-                if (pin.text.toString() == p.pin) {
-                    d.dismiss()
-                    a.startActivity(Intent(a, SettingsActivity::class.java))
-                } else {
-                    pin.setText("")
-                    pin.hint = "PIN equivocado"
+            c.addView(a.bigButton(if (creating) "Guardar PIN" else "Entrar", Col.AZUL) {
+                val t = pin.text.toString().trim()
+                when {
+                    creating && (t.length < 4 || !t.all { it.isDigit() }) -> {
+                        pin.setText("")
+                        pin.hint = "Mínimo 4 números"
+                    }
+                    creating -> {
+                        p.pin = t
+                        d.dismiss()
+                        onOk()
+                    }
+                    t == p.pin -> {
+                        d.dismiss()
+                        onOk()
+                    }
+                    else -> {
+                        pin.setText("")
+                        pin.hint = "PIN equivocado"
+                    }
                 }
             }, a.full())
             c.addView(a.bigButton("Cancelar", Col.BLANCO, Col.TINTA) { d.dismiss() }, a.full())
         }
+    }
+
+    fun openSettings() = askPin("Configuración") {
+        a.startActivity(Intent(a, SettingsActivity::class.java))
+    }
+
+    /** Salida de emergencia del modo pantalla de inicio. */
+    fun exitLauncher() = askPin("Salir de la pantalla de inicio") {
+        Launcher.set(a, false)
     }
 
     fun voiceCommand(results: List<String>) {

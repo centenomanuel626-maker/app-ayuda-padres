@@ -113,3 +113,19 @@ grant execute on function public.resolve_alert(bigint) to anon;
 grant execute on function public.set_hidden_categories(text, text[]) to anon;
 grant execute on function public.request_family_code() to anon;
 revoke execute on function public.alerts_after_insert() from public, anon, authenticated;
+
+-- Privacidad: los avisos (incluidas las ubicaciones de emergencia) se borran solos a los 30 días.
+create extension if not exists pg_cron;
+
+create or replace function public.borrar_avisos_viejos()
+returns void
+language sql
+security definer
+set search_path = public
+as $$
+  delete from public.alerts where created_at < now() - interval '30 days';
+$$;
+
+revoke execute on function public.borrar_avisos_viejos() from public, anon, authenticated;
+
+select cron.schedule('borrar-avisos-viejos', '15 4 * * *', $$select public.borrar_avisos_viejos();$$);

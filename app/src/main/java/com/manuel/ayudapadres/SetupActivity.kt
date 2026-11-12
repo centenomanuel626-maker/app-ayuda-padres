@@ -48,7 +48,7 @@ class SetupActivity : Activity() {
         c.addView(text("Lo ves en la app de tu celular, en “Mi panel”. Sin código, la app funciona igual pero sin panel ni avisos.", 16f, false, Col.GRIS))
         val code = input("XXXX-XXXX-XXXX", prefs.familyCode)
         c.addView(code, full())
-        c.addView(text("PIN para la configuración", 19f, true))
+        c.addView(text("PIN para la configuración (obligatorio)", 19f, true))
         c.addView(text("4 números. Así tus padres no cambian la configuración sin querer.", 16f, false, Col.GRIS))
         val pin = input("1234", prefs.pin, numeric = true)
         c.addView(pin, full())
@@ -56,6 +56,11 @@ class SetupActivity : Activity() {
         c.addView(bigButton("Guardar y dar permisos", Col.VERDE) {
             if (phone.text.toString().filter { it.isDigit() }.length < 8) {
                 Toast.makeText(this, "Escribe tu teléfono con código de país", Toast.LENGTH_LONG).show()
+                return@bigButton
+            }
+            val pinText = pin.text.toString().trim()
+            if (pinText.length < 4 || !pinText.all { it.isDigit() }) {
+                Toast.makeText(this, "Escribe un PIN de al menos 4 números", Toast.LENGTH_LONG).show()
                 return@bigButton
             }
             prefs.parentName = name.text.toString().trim().ifEmpty { "mamá" }

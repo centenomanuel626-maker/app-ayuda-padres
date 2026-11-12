@@ -199,7 +199,12 @@ class PanelActivity : Activity() {
         pill(box, "Seguridad", sl, sc, ss)
         val ringer = d.optString("ringer", "")
         if (ringer.isNotEmpty() && ringer != "null") pill(box, "Sonido", ringer, Col.TINTA, Col.FONDO)
-        pill(box, "Último reporte", ago(d.optString("last_seen")), Col.TINTA, Col.FONDO)
+        val seen = millis(d.optString("last_seen"))
+        val late = seen == null || System.currentTimeMillis() - seen > 60 * 60 * 1000L
+        pill(box, "Último reporte", ago(d.optString("last_seen")), if (late) Col.ROJO else Col.TINTA, if (late) Col.ROJO_SUAVE else Col.FONDO)
+        if (late) {
+            box.addView(text("Hace más de una hora que no reporta. Puede estar apagado, sin internet, o el celular cerró la app (en Xiaomi: revisa “Inicio automático”).", 15f, false, Col.ROJO), full())
+        }
 
         // Categorías visibles a distancia
         val hidden = HashSet<String>()

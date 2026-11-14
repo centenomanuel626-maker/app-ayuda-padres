@@ -71,6 +71,15 @@ class SettingsActivity : Activity() {
         c.addView(bigButton("🧪 Probar todo en este celular", Col.VERDE) {
             startActivity(Intent(this, DiagnosticsActivity::class.java))
         }, full())
+        c.addView(bigButton("⬇️ Buscar actualización de la app", Col.BLANCO, Col.TINTA) {
+            if (padres) {
+                startActivity(Intent(this, MainActivity::class.java).addFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP)
+                    .putExtra("run", "update").putExtra("token", prefs.intentToken))
+                finish()
+            } else {
+                Updater.interactive(this) { msg, _ -> Toast.makeText(this, msg, Toast.LENGTH_LONG).show() }
+            }
+        }, full())
         c.addView(text("Revisa una por una las funciones (llamadas, ubicación, alarmas, avisos…) y deja el resultado en el panel. Hazlo en cada celular antes de dárselo a tus padres.", 16f, false, Col.GRIS), full())
 
         // ---------- Datos ----------

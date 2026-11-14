@@ -157,6 +157,9 @@ class DiagnosticsActivity : Activity() {
         out += if (torch) Row("Linterna", Lv.OK, "Disponible") else Row("Linterna", Lv.WARN, "Este celular no tiene flash")
         out += if (android.provider.Settings.System.canWrite(this)) Row("Cambiar brillo, letra y pantalla", Lv.OK, "Permitido")
                else Row("Cambiar brillo, letra y pantalla", Lv.WARN, "Falta el permiso “Modificar ajustes del sistema”", "perm")
+        out += if (packageManager.canRequestPackageInstalls()) Row("Actualizar a distancia", Lv.OK,
+                   if (Updater.canSilent(this)) "Permitido; se actualiza sin preguntar" else "Permitido; pedirá tocar “Actualizar”")
+               else Row("Actualizar a distancia", Lv.WARN, "Falta el permiso para instalar sus versiones nuevas", "perm")
         out += if (installed("com.teamviewer.quicksupport.market")) Row("TeamViewer QuickSupport", Lv.OK, "Instalado")
                else Row("TeamViewer QuickSupport", Lv.WARN, "No está instalado: no podrás entrar a ayudar a distancia", "perm")
         if (Build.VERSION.SDK_INT >= 29) {

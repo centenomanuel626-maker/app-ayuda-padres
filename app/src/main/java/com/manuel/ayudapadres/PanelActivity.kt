@@ -21,6 +21,8 @@ class PanelActivity : Activity() {
     private var devices: JSONArray? = null
     private var alerts: JSONArray? = null
     private var loading = false
+    /** Última versión publicada en GitHub (null si no se pudo revisar). */
+    private var latest: Int? = null
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -41,6 +43,7 @@ class PanelActivity : Activity() {
         val ctx = applicationContext
         Thread {
             val d = Cloud.devices(ctx)
+            Updater.latest()?.let { latest = it }
             val a = Cloud.alerts(ctx, 0, 50)
             if (a != null && a.length() > 0) {
                 val newest = a.getJSONObject(0).getLong("id")
@@ -104,7 +107,13 @@ class PanelActivity : Activity() {
             return
         }
 
-        c.addView(bigButton(if (loading) "Actualizando…" else "Actualizar", Col.AZUL) { load() }, full())
+        c.addView(bigButton(if (loading) "Cargando…" else "🔄 Recargar el panel", Col.AZUL) { load() }, full())
+        val newest = latest
+        if (newest != null && newest > Updater.current) {
+            c.addView(bigButton("⬇️ Actualizar mi app a la versión 1.0.$newest", Col.BLANCO, Col.TINTA) {
+                Updater.interactive(this) { msg, _ -> Toast.makeText(this, msg, Toast.LENGTH_LONG).show() }
+            }, full())
+        }
 
         // ---------- Celulares ----------
         val d = devices
@@ -215,7 +224,30 @@ class PanelActivity : Activity() {
         val seen = millis(d.optString("last_seen"))
         val late = seen == null || System.currentTimeMillis() - seen > 60 * 60 * 1000L
         val ver = d.optString("version", "")
-        if (ver.isNotEmpty() && ver != "null") pill(box, "Versión de la app", ver, Col.TINTA, Col.FONDO)
+        val verCode = ver.substringAfterLast('.').toIntOrNull() ?: 0
+        val newest = latest
+        val pedido = d.optInt("update_to", 0)
+        if (ver.isNotEmpty() && ver != "null") {
+            val old = newest != null && newest > verCode
+            pill(box, "Versión de la app", if (old) "$ver · hay 1.0.$newest" else "$ver ✓",
+                if (old) Col.AMARILLO else Col.VERDE, if (old) Col.AMARILLO_SUAVE else Col.VERDE_SUAVE)
+        }
+        if (newest != null && newest > verCode) {
+            if (pedido >= newest) {
+                box.addView(text("⏳ Actualización pedida. Se instala en los próximos 15 minutos; si su celular pide confirmar, le sale un aviso que dice “Actualizar”.", 15f, false, Col.AMARILLO), full())
+            }
+            box.addView(bigButton("⬇️ Actualizar su celular a la versión 1.0.$newest", Col.AZUL) {
+                Thread {
+                    val ok = Cloud.requestUpdate(applicationContext, d.optString("id"), newest)
+                    runOnUiThread {
+                        Toast.makeText(this,
+                            if (ok) "Listo: se actualizará en los próximos 15 minutos." else "No se pudo pedir. Revisa el internet.",
+                            Toast.LENGTH_LONG).show()
+                        load()
+                    }
+                }.start()
+            }, full())
+        }
         val diag = d.optString("diagnostic", "")
         if (diag.isNotEmpty() && diag != "null") {
             val ok = diag.contains("Todo funciona")

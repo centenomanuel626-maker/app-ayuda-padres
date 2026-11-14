@@ -97,6 +97,10 @@ class ReportJobService : JobService() {
             }
 
             Cloud.fetchHiddenCategories(ctx)?.let { p.hiddenCats = it }
+
+            // Actualización pedida desde el panel de Manuel.
+            val wanted = Cloud.fetchUpdateRequest(ctx)
+            if (wanted > Updater.current) Updater.runInBackground(ctx, wanted)
         }
 
         private fun helperWork(ctx: Context, p: Prefs) {

@@ -76,6 +76,20 @@ object Cloud {
     }
 
     /** Lee las categorías que Manuel escondió para este celular. Devuelve null si no hay conexión. */
+    /** Versión que Manuel pidió instalar en este celular (0 si ninguna). */
+    fun fetchUpdateRequest(ctx: Context): Int {
+        val txt = request(ctx, "GET", "devices?select=update_to&id=eq." + enc(Prefs(ctx).deviceId)) ?: return 0
+        return try {
+            val arr = JSONArray(txt)
+            if (arr.length() == 0) 0 else arr.getJSONObject(0).optInt("update_to", 0)
+        } catch (e: Exception) {
+            0
+        }
+    }
+
+    fun requestUpdate(ctx: Context, deviceId: String, code: Int): Boolean =
+        request(ctx, "POST", "rpc/request_update", JSONObject().put("target_device", deviceId).put("code", code).toString()) != null
+
     fun fetchHiddenCategories(ctx: Context): Set<String>? {
         val txt = request(ctx, "GET", "devices?select=hidden_categories&id=eq." + enc(Prefs(ctx).deviceId)) ?: return null
         return try {

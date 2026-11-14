@@ -226,3 +226,19 @@ $$;
 drop trigger if exists alerts_guard_update on public.alerts;
 create trigger alerts_guard_update before update on public.alerts
   for each row execute function public.alerts_guard_update();
+
+-- Actualización a distancia: Manuel pide una versión y el celular la instala en su próximo reporte.
+alter table public.devices add column if not exists update_to int;
+
+create or replace function public.request_update(target_device text, code int)
+returns void
+language sql
+security invoker
+set search_path = public
+as $$
+  update public.devices set update_to = code
+   where id = target_device and family_code = public.request_family_code()
+     and code between 1 and 100000;
+$$;
+
+grant execute on function public.request_update(text, int) to anon;

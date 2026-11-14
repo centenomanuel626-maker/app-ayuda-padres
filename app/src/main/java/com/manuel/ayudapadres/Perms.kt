@@ -113,6 +113,9 @@ object Perms {
                     } catch (e: Exception) { }
                 })
         }
+        out += Item("Actualizar la app a distancia", "Permite que esta app (y solo ella) instale sus versiones nuevas",
+            { x -> x.packageManager.canRequestPackageInstalls() },
+            { x -> settings(x, Intent(Settings.ACTION_MANAGE_UNKNOWN_APP_SOURCES, pkgUri(x))) })
         out += Item("TeamViewer QuickSupport instalado", "Para la ayuda a distancia",
             { x -> x.packageManager.getLaunchIntentForPackage("com.teamviewer.quicksupport.market") != null },
             { x -> settings(x,

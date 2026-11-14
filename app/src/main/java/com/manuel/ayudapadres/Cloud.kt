@@ -126,7 +126,34 @@ object Cloud {
         }
     }
 
+    /** Apps que Manuel pidió quitar de este celular (null si no hay conexión). */
+    fun fetchRemoveApps(ctx: Context): List<String>? {
+        val txt = request(ctx, "GET", "devices?select=remove_apps&id=eq." + enc(Prefs(ctx).deviceId)) ?: return null
+        return try {
+            val arr = JSONArray(txt)
+            if (arr.length() == 0) return emptyList()
+            val list = arr.getJSONObject(0).optJSONArray("remove_apps") ?: return emptyList()
+            (0 until list.length()).map { list.getString(it) }
+        } catch (e: Exception) {
+            null
+        }
+    }
+
+    /** Este celular terminó con el pedido de quitar apps. */
+    fun clearRemoveApps(ctx: Context): Boolean =
+        reportStatus(ctx, JSONObject().put("remove_apps", JSONArray()))
+
     // ---------- Celular de Manuel ----------
+
+    /** Manuel pide que en ese celular se quiten estas apps (la persona confirma cada una). */
+    fun requestRemoveApps(ctx: Context, deviceId: String, pkgs: Collection<String>): Boolean {
+        val arr = JSONArray()
+        pkgs.take(40).forEach { arr.put(it) }
+        return request(
+            ctx, "POST", "rpc/request_remove_apps",
+            JSONObject().put("target_device", deviceId).put("pkgs", arr).toString()
+        ) != null
+    }
 
     fun devices(ctx: Context): JSONArray? {
         val txt = request(ctx, "GET", "devices?select=*&order=label.asc") ?: return null

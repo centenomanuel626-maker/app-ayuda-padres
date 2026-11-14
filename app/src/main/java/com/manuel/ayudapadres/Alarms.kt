@@ -12,6 +12,9 @@ object Ids {
     const val BATERIA = 2
     const val ESTAFA = 3
     const val REPORTE = 4
+    const val NOCHE = 5
+    const val QUITAR = 6
+    const val PANTALLA_INICIO = 7
     fun med(id: Int) = 1000 + id
     fun newApp(pkg: String) = 5000 + (pkg.hashCode() and 0xFFFF)
     fun alert(id: Long) = 200000 + (id % 100000).toInt()
@@ -23,6 +26,8 @@ object Alarms {
     const val ACTION_ESTOY_BIEN_RECORDAR = "com.manuel.ayudapadres.ESTOY_BIEN_RECORDAR"
     const val ACTION_ESTOY_BIEN_ENVIAR = "com.manuel.ayudapadres.ESTOY_BIEN_ENVIAR"
     const val ACTION_APP_OK = "com.manuel.ayudapadres.APP_OK"
+    const val ACTION_NOCHE = "com.manuel.ayudapadres.NOCHE"
+    const val NOCHE_HOUR = 21
     const val ESTOY_BIEN_HOUR = 10
 
     fun nextMed(p: Prefs): Prefs.Med? {
@@ -43,10 +48,20 @@ object Alarms {
         return c.timeInMillis
     }
 
-    private fun arm(ctx: Context, code: Int, at: Long, intent: Intent) {
+    /**
+     * clock = true para las medicinas: se programa como alarma de reloj (el ícono del despertador),
+     * que ni el ahorro de batería ni Xiaomi pueden atrasar.
+     */
+    private fun arm(ctx: Context, code: Int, at: Long, intent: Intent, clock: Boolean = false) {
         val am = ctx.getSystemService(AlarmManager::class.java)
         val pi = Notif.pendingBroadcast(ctx, code, intent)
         val exact = Build.VERSION.SDK_INT < 31 || am.canScheduleExactAlarms()
+        if (clock && exact) {
+            try {
+                am.setAlarmClock(AlarmManager.AlarmClockInfo(at, Notif.openApp(ctx, code)), pi)
+                return
+            } catch (e: Exception) { }
+        }
         try {
             if (exact) am.setExactAndAllowWhileIdle(AlarmManager.RTC_WAKEUP, at, pi)
             else am.setAndAllowWhileIdle(AlarmManager.RTC_WAKEUP, at, pi)
@@ -59,12 +74,12 @@ object Alarms {
         Intent(ctx, AlarmReceiver::class.java).setAction(ACTION_MED)
             .putExtra("id", m.id).putExtra("name", m.name)
 
-    fun scheduleMed(ctx: Context, m: Prefs.Med) = arm(ctx, Ids.med(m.id), nextTime(m.hour, m.minute), medIntent(ctx, m))
+    fun scheduleMed(ctx: Context, m: Prefs.Med) = arm(ctx, Ids.med(m.id), nextTime(m.hour, m.minute), medIntent(ctx, m), clock = true)
 
     fun snoozeMed(ctx: Context, id: Int, name: String, minutes: Int = 10) {
         val i = Intent(ctx, AlarmReceiver::class.java).setAction(ACTION_MED).putExtra("id", id).putExtra("name", name)
             .putExtra("snooze", true)
-        arm(ctx, Ids.med(id) + 500, System.currentTimeMillis() + minutes * 60_000L, i)
+        arm(ctx, Ids.med(id) + 500, System.currentTimeMillis() + minutes * 60_000L, i, clock = true)
     }
 
     fun cancelMed(ctx: Context, id: Int) {
@@ -76,10 +91,14 @@ object Alarms {
         arm(ctx, Ids.ESTOY_BIEN, nextTime(ESTOY_BIEN_HOUR, 0),
             Intent(ctx, AlarmReceiver::class.java).setAction(ACTION_ESTOY_BIEN_RECORDAR))
 
+    fun scheduleNight(ctx: Context) =
+        arm(ctx, Ids.NOCHE, nextTime(NOCHE_HOUR, 0), Intent(ctx, AlarmReceiver::class.java).setAction(ACTION_NOCHE))
+
     fun scheduleAll(ctx: Context) {
         val p = Prefs(ctx)
         if (p.role != "padres") return
         p.meds.forEach { scheduleMed(ctx, it) }
         scheduleEstoyBien(ctx)
+        scheduleNight(ctx)
     }
 }

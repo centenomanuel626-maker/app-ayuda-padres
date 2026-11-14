@@ -24,7 +24,7 @@ class MainActivity : Activity() {
     lateinit var prefs: Prefs
     lateinit var acc: Acciones
     private lateinit var content: LinearLayout
-    private lateinit var scroll: ScrollView
+    lateinit var scroll: ScrollView
     private lateinit var banner: TextView
     private val handler = Handler(Looper.getMainLooper())
     private val hideBanner = Runnable { banner.visibility = View.GONE }
@@ -96,6 +96,7 @@ class MainActivity : Activity() {
         if (coach == null) refresh()
         // "Ver el tutorial otra vez" desde la configuración.
         if (!prefs.tutorialDone && coach == null) scroll.post { startTour() }
+        KeepAliveService.start(applicationContext)
         Thread {
             InstallWatch.check(applicationContext)
         }.start()
@@ -110,6 +111,10 @@ class MainActivity : Activity() {
             "web" -> showWebProtection()
             "cat" -> showCategory(cat, keepScroll = true)
             "quitar" -> showUnused()
+            "pedidas" -> showRemoveRequested()
+            "lento" -> showSlow()
+            "tema" -> showTheme()
+            "xiaomi" -> showXiaomiSetup()
             "medicinas" -> showMeds()
             "familia" -> showFamily()
         }
@@ -241,6 +246,21 @@ class MainActivity : Activity() {
                 showHome()
             })
             c.addView(pr, full())
+        }
+
+        // Otra app se adueñó de la pantalla de inicio (temas o "launchers" que llegan por anuncios).
+        AppCleanup.impostorHome(this)?.let { home ->
+            val bad = card(Col.ROJO_SUAVE, Col.ROJO)
+            bad.addView(text("⚠️ “${home.second}” cambió tu pantalla de inicio", 20f, true, Col.ROJO))
+            bad.addView(bigButton("Arreglarlo", Col.ROJO) { showTheme() }, full())
+            c.addView(bad, full())
+        }
+        val pedidas = RemoveRequest.pending(this)
+        if (pedidas.isNotEmpty()) {
+            val q = card(Col.AMARILLO_SUAVE, Col.AMARILLO)
+            q.addView(text("${prefs.helperName} te sugiere quitar ${pedidas.size} app" + (if (pedidas.size == 1) "" else "s"), 20f, true))
+            q.addView(bigButton("Verlas", Col.AMARILLO) { showRemoveRequested() }, full())
+            c.addView(q, full())
         }
 
         if (DateUtils.isToday(prefs.lastEstoyBien)) {

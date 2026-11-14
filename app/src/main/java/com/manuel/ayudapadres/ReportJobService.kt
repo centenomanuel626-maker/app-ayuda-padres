@@ -54,7 +54,19 @@ class ReportJobService : JobService() {
             } catch (e: Exception) { }
         }
 
+        private val running = java.util.concurrent.atomic.AtomicBoolean(false)
+
         fun work(ctx: Context) {
+            // El trabajo programado y el aviso fijo pueden coincidir: solo uno a la vez.
+            if (!running.compareAndSet(false, true)) return
+            try {
+                doWork(ctx)
+            } finally {
+                running.set(false)
+            }
+        }
+
+        private fun doWork(ctx: Context) {
             val p = Prefs(ctx)
             try { CrashLog.flush(ctx) } catch (e: Exception) { }
             when (p.role) {
@@ -65,7 +77,25 @@ class ReportJobService : JobService() {
 
         private fun parentWork(ctx: Context, p: Prefs) {
             InstallWatch.check(ctx)
-            if (!Cloud.configured(ctx)) return
+            KeepAliveService.start(ctx)
+            val home = AppCleanup.impostorHome(ctx)
+            if (home != null && home.first != p.lastHomeAlert) {
+                p.lastHomeAlert = home.first
+                Notif.show(ctx, Ids.PANTALLA_INICIO, Notif.URGENTE, "Otra app cambió tu pantalla de inicio",
+                    "“${home.second}” se puso como pantalla de inicio. Suele llenar el celular de anuncios y gastar batería. Toca para arreglarlo.",
+                    tap = Notif.pendingActivity(ctx, Ids.PANTALLA_INICIO,
+                        Intent(ctx, MainActivity::class.java).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                            .putExtra("run", "tema").putExtra("token", p.intentToken)))
+                Cloud.alert(ctx, "warn", "“${home.second}” se adueñó de la pantalla de inicio (por eso el celular se ve raro y gasta batería). Le pedimos que vuelva a la normal.")
+            } else if (home == null && p.lastHomeAlert.isNotEmpty()) {
+                p.lastHomeAlert = ""
+                Notif.cancel(ctx, Ids.PANTALLA_INICIO)
+            }
+            if (!Cloud.configured(ctx)) {
+                val bm = ctx.getSystemService(BatteryManager::class.java)
+                BatteryCoach.check(ctx, bm.getIntProperty(BatteryManager.BATTERY_PROPERTY_CAPACITY), bm.isCharging)
+                return
+            }
 
             val bm = ctx.getSystemService(BatteryManager::class.java)
             val pct = bm.getIntProperty(BatteryManager.BATTERY_PROPERTY_CAPACITY)
@@ -87,7 +117,17 @@ class ReportJobService : JobService() {
                 .put("missing", Perms.missingCritical(ctx).joinToString(", "))
                 .put("adblock", WebShield.adBlockActive(ctx))
             if (p.lastSecurity.isNotEmpty()) status.put("security", p.lastSecurity)
-            if (Cloud.reportStatus(ctx, status)) p.lastReport = System.currentTimeMillis()
+            status.put("home_app", home?.second ?: "")
+            status.put("keep_alive", KeepAliveService.running)
+            if (AppCleanup.isXiaomi()) status.put("phone_setup", XiaomiSetup.summary(ctx).take(300))
+            // La lista de apps (para el panel) cada 6 horas: no cambia tan seguido.
+            val sendApps = System.currentTimeMillis() - p.lastAppsReport > 6 * 60 * 60 * 1000L
+            if (sendApps) status.put("apps", AppCleanup.snapshot(ctx))
+            if (Cloud.reportStatus(ctx, status)) {
+                p.lastReport = System.currentTimeMillis()
+                if (sendApps) p.lastAppsReport = System.currentTimeMillis()
+            }
+            BatteryCoach.check(ctx, pct, charging)
 
             // Batería baja: un aviso cada 3 horas como máximo.
             if (pct <= 20 && !charging && System.currentTimeMillis() - p.lastBatteryAlert > 3 * 60 * 60 * 1000L) {
@@ -107,6 +147,9 @@ class ReportJobService : JobService() {
                     Cloud.alert(ctx, "info", "Cambió al código de familia nuevo.")
                 }
             }
+
+            // Apps que Manuel pidió quitar.
+            Cloud.fetchRemoveApps(ctx)?.let { RemoveRequest.sync(ctx, it) }
 
             // Actualización pedida desde el panel de Manuel.
             val wanted = Cloud.fetchUpdateRequest(ctx)

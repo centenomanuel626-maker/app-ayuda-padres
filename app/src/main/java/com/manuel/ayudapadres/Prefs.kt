@@ -161,6 +161,40 @@ class Prefs(context: Context) {
         get() = str("lastSecurity")
         set(v) = putStr("lastSecurity", v)
 
+    /** Apps que la persona dijo que quiere conservar (no se le vuelven a sugerir para quitar). */
+    var keepApps: Set<String>
+        get() = strSet("keepApps")
+        set(v) = putSet("keepApps", v)
+
+    var lastAppsReport: Long
+        get() = p.getLong("lastAppsReport", 0L)
+        set(v) = p.edit().putLong("lastAppsReport", v).apply()
+
+    /** 0 = sin aviso, 1 = ya avisó al 30 %, 2 = ya avisó al 15 %. Vuelve a 0 al cargar. */
+    var batteryStage: Int
+        get() = p.getInt("batteryStage", 0)
+        set(v) = p.edit().putInt("batteryStage", v).apply()
+
+    /** Pasos del asistente de Xiaomi que ya se hicieron (los que el celular no deja comprobar). */
+    var xiaomiDone: Set<String>
+        get() = strSet("xiaomiDone")
+        set(v) = putSet("xiaomiDone", v)
+
+    /** Apps que Manuel pidió quitar, ya avisadas (para no repetir la notificación). */
+    var removeNotified: String
+        get() = str("removeNotified")
+        set(v) = putStr("removeNotified", v)
+
+    /** Apps que Manuel pidió quitar (copia local de devices.remove_apps). */
+    var removeRequest: Set<String>
+        get() = strSet("removeRequest")
+        set(v) = putSet("removeRequest", v)
+
+    /** Pantalla de inicio impostora ya avisada a Manuel. */
+    var lastHomeAlert: String
+        get() = str("lastHomeAlert")
+        set(v) = putStr("lastHomeAlert", v)
+
     // ---------- Medicinas ----------
     data class Med(val id: Int, val name: String, val hour: Int, val minute: Int)
 

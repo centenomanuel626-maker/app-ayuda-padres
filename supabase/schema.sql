@@ -245,3 +245,33 @@ grant execute on function public.request_update(text, int) to anon;
 
 -- Cambiar el código de familia a distancia (ver migración codigo_familia_a_distancia en Supabase):
 -- columna devices.new_family_code y funciones rotate_family_code / adopt_family_code.
+
+-- Limpieza y Xiaomi (migración apps_y_pantalla_de_inicio):
+-- home_app: nombre de la app que se adueñó de la pantalla de inicio ("" = la normal).
+-- keep_alive: el aviso fijo "Ayuda está activa" está funcionando.
+-- phone_setup: resumen de los ajustes de Xiaomi.
+-- apps: lista compacta de apps con su uso (cada 6 horas). remove_apps: apps que Manuel pidió quitar.
+alter table public.devices add column if not exists home_app text;
+alter table public.devices add column if not exists keep_alive boolean;
+alter table public.devices add column if not exists phone_setup text;
+alter table public.devices add column if not exists apps jsonb;
+alter table public.devices add column if not exists remove_apps text[];
+alter table public.devices
+  add constraint devices_cleanup_len check (
+    length(coalesce(home_app,'')) <= 100 and length(coalesce(phone_setup,'')) <= 300 and
+    (apps is null or (jsonb_typeof(apps) = 'array' and length(apps::text) <= 40000)) and
+    coalesce(array_length(remove_apps, 1), 0) <= 40);
+
+create or replace function public.request_remove_apps(target_device text, pkgs text[])
+returns void
+language sql
+security invoker
+set search_path = public
+as $$
+  update public.devices set remove_apps = pkgs
+   where id = target_device and family_code = public.request_family_code()
+     and coalesce(array_length(pkgs, 1), 0) <= 40
+     and not exists (select 1 from unnest(pkgs) p where p !~ '^[A-Za-z0-9_.]{1,200}$');
+$$;
+
+grant execute on function public.request_remove_apps(text, text[]) to anon;

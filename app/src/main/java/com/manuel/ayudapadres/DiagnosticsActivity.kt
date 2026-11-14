@@ -95,8 +95,17 @@ class DiagnosticsActivity : Activity() {
         val bgOk = getSystemService(PowerManager::class.java).isIgnoringBatteryOptimizations(packageName)
         out += if (bgOk) Row("Segundo plano", Lv.OK, "La app puede trabajar con la pantalla apagada")
                else Row("Segundo plano", Lv.BAD, "El celular puede dormir la app: no habrá reportes ni avisos", "perm")
-        if (Build.MANUFACTURER.lowercase().let { it.contains("xiaomi") || it.contains("redmi") || it.contains("poco") }) {
-            out += Row("Inicio automático (Xiaomi)", Lv.WARN, "No se puede comprobar solo: revisa que esté activado", "settings")
+        if (AppCleanup.isXiaomi() && prefs.role == "padres") {
+            val miss = XiaomiSetup.missing(this)
+            out += if (miss.isEmpty()) Row("Ajustes de Xiaomi", Lv.OK, "Todos hechos")
+                   else Row("Ajustes de Xiaomi", Lv.WARN, "Faltan: " + miss.joinToString(", ") { it.title }, "xiaomi")
+        }
+        if (prefs.role == "padres") {
+            out += if (KeepAliveService.running) Row("Aviso fijo “Ayuda está activa”", Lv.OK, "Funcionando: el celular no duerme la app")
+                   else Row("Aviso fijo “Ayuda está activa”", Lv.WARN, "No está activo: abre la app una vez para prenderlo")
+            val home = AppCleanup.impostorHome(this)
+            out += if (home == null) Row("Pantalla de inicio", Lv.OK, "La normal del celular")
+                   else Row("Pantalla de inicio", Lv.BAD, "“${home.second}” se adueñó de la pantalla de inicio", "tema")
         }
         out += if (FamilyCode.isStrong(prefs.familyCode)) Row("Código de familia", Lv.OK, "Fuerte")
                else Row("Código de familia", Lv.BAD, "Muy fácil de adivinar: cámbialo desde el panel de ${prefs.helperName}", "settings")
@@ -241,8 +250,13 @@ class DiagnosticsActivity : Activity() {
             rowBox.addView(text("$mark ${row.name}", 19f, true))
             rowBox.addView(text(row.detail, 16f, false, Col.GRIS))
             if (row.r != Lv.OK && row.fix != null) {
-                rowBox.addView(bigButton("Arreglarlo en la configuración", Col.BLANCO, Col.TINTA) {
-                    startActivity(Intent(this, SettingsActivity::class.java))
+                rowBox.addView(bigButton(if (row.fix == "xiaomi" || row.fix == "tema") "Arreglarlo" else "Arreglarlo en la configuración", Col.BLANCO, Col.TINTA) {
+                    when (row.fix) {
+                        "xiaomi" -> openXiaomiSetup()
+                        "tema" -> startActivity(Intent(this, MainActivity::class.java).addFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP)
+                            .putExtra("run", "tema").putExtra("token", prefs.intentToken))
+                        else -> startActivity(Intent(this, SettingsActivity::class.java))
+                    }
                     finish()
                 }, full())
             }

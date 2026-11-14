@@ -110,19 +110,16 @@ class SettingsActivity : Activity() {
         c.addView(cloud, full())
 
         // ---------- Permisos ----------
-        if (Build.MANUFACTURER.lowercase().let { it.contains("xiaomi") || it.contains("redmi") || it.contains("poco") }) {
-            val xi = card(Col.AMARILLO_SUAVE, Col.AMARILLO)
-            xi.addView(text("Importante en Xiaomi", 20f, true))
-            xi.addView(text("Xiaomi cierra las apps en segundo plano. Si no activas estas dos cosas, no sonarán las medicinas ni llegarán los avisos a tu panel:\n1. Inicio automático: activado.\n2. Ahorro de batería: “Sin restricciones”.", 17f))
-            xi.addView(bigButton("Abrir Inicio automático", Col.AMARILLO) {
-                try {
-                    startActivity(Intent().setComponent(ComponentName("com.miui.securitycenter", "com.miui.permcenter.autostart.AutoStartManagementActivity")))
-                } catch (e: Exception) {
-                    startActivity(Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS, android.net.Uri.parse("package:$packageName")))
-                }
-            }, full())
-            xi.addView(bigButton("Abrir ajustes de batería de la app", Col.BLANCO, Col.TINTA) {
-                startActivity(Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS, android.net.Uri.parse("package:$packageName")))
+        if (AppCleanup.isXiaomi()) {
+            val miss = XiaomiSetup.missing(this)
+            val xi = if (miss.isEmpty()) card(Col.VERDE_SUAVE, Col.VERDE) else card(Col.AMARILLO_SUAVE, Col.AMARILLO)
+            xi.addView(text(if (miss.isEmpty()) "✅ Xiaomi ajustado" else "Importante en Xiaomi", 20f, true))
+            xi.addView(text(if (miss.isEmpty()) "Todos los ajustes para que Xiaomi no cierre la app están hechos."
+                else "Xiaomi cierra las apps en segundo plano: sin estos ajustes no suenan las medicinas ni llegan los avisos al panel. Faltan ${miss.size}.", 17f))
+            xi.addView(bigButton(if (miss.isEmpty()) "Revisar los ajustes de Xiaomi" else "Ajustar este Xiaomi (asistente de un toque)",
+                if (miss.isEmpty()) Col.BLANCO else Col.AMARILLO, if (miss.isEmpty()) Col.TINTA else Col.BLANCO) {
+                openXiaomiSetup()
+                finish()
             }, full())
             c.addView(xi, full())
         }

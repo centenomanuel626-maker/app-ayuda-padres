@@ -287,6 +287,36 @@ class PanelActivity : Activity() {
                 }.start()
             }, full())
         }
+        // Pantalla de inicio impostora (tema/launcher que llegó por un anuncio).
+        val homeApp = d.optString("home_app", "")
+        if (homeApp.isNotEmpty() && homeApp != "null") {
+            pill(box, "Pantalla de inicio", homeApp, Col.ROJO, Col.ROJO_SUAVE)
+            box.addView(text("“$homeApp” se adueñó de su pantalla de inicio: por eso se ve raro, salen anuncios y gasta batería. En su celular le sale un aviso para arreglarlo (Sonido y pantalla → El celular se ve raro).", 15f, false, Col.ROJO), full())
+        } else if (d.has("home_app") && !d.isNull("home_app")) {
+            pill(box, "Pantalla de inicio", "Normal", Col.VERDE, Col.VERDE_SUAVE)
+        }
+        if (d.has("keep_alive") && !d.isNull("keep_alive")) {
+            val ka = d.optBoolean("keep_alive", false)
+            pill(box, "Aviso fijo “activa”", if (ka) "Funcionando" else "Apagado", if (ka) Col.VERDE else Col.AMARILLO,
+                if (ka) Col.VERDE_SUAVE else Col.AMARILLO_SUAVE)
+        }
+        val setup = d.optString("phone_setup", "")
+        if (setup.isNotEmpty() && setup != "null") {
+            val ok = setup == "Listo"
+            pill(box, "Ajustes de Xiaomi", if (ok) "Listos" else "Incompletos", if (ok) Col.VERDE else Col.AMARILLO, if (ok) Col.VERDE_SUAVE else Col.AMARILLO_SUAVE)
+            if (!ok) box.addView(text("$setup. Entra con TeamViewer: ⚙️ → “Ajustar este Xiaomi”.", 15f, false, Col.AMARILLO), full())
+        }
+        // Apps del celular y pedido de quitar.
+        val apps = d.optJSONArray("apps")
+        val asked = d.optJSONArray("remove_apps")
+        if (asked != null && asked.length() > 0) {
+            val names = (0 until asked.length()).map { j -> appName(apps, asked.getString(j)) }
+            box.addView(text("⏳ Le pediste quitar: " + names.joinToString(", ") + ". Le llegó un aviso; tú recibes otro cuando termine.", 15f, false, Col.AMARILLO), full())
+        }
+        if (apps != null && apps.length() > 0) {
+            box.addView(bigButton("📱 Ver sus apps (${apps.length()}) y elegir cuáles quitar", Col.AZUL) { showApps(d) }, full())
+        }
+
         val diag = d.optString("diagnostic", "")
         if (diag.isNotEmpty() && diag != "null") {
             val ok = diag.contains("Todo funciona")
@@ -336,6 +366,93 @@ class PanelActivity : Activity() {
             } catch (e: Exception) { }
         }, full())
         c.addView(box, full())
+    }
+
+    private fun appName(apps: JSONArray?, pkg: String): String {
+        if (apps != null) for (j in 0 until apps.length()) {
+            val o = apps.getJSONObject(j)
+            if (o.optString("p") == pkg) return o.optString("n", pkg)
+        }
+        return pkg
+    }
+
+    /** Lista de apps del celular de mamá o papá: Manuel marca las que sobran y se las sugiere quitar. */
+    private fun showApps(d: JSONObject) {
+        val apps = d.optJSONArray("apps") ?: return
+        val deviceId = d.optString("id")
+        data class A(val pkg: String, val name: String, val idle: Int, val mins: Int, val system: Boolean, val keep: Boolean, val installDays: Int)
+        val list = (0 until apps.length()).map { j ->
+            val o = apps.getJSONObject(j)
+            A(o.optString("p"), o.optString("n"), o.optInt("d", -1), o.optInt("m", -1), o.optBoolean("s"), o.optBoolean("k"), o.optInt("i", 0))
+        }
+        val removable = list.filter { !it.keep }
+        // Primero las olvidadas, luego las que más se usan (gastan batería), luego el resto.
+        val sorted = removable.sortedWith(compareByDescending<A> { it.idle >= 30 }.thenByDescending { it.mins }.thenByDescending { it.idle })
+        val chosen = LinkedHashSet<String>()
+        val already = HashSet<String>()
+        d.optJSONArray("remove_apps")?.let { arr -> for (j in 0 until arr.length()) already.add(arr.getString(j)) }
+        chosen.addAll(already)
+        sheet { c, dlg ->
+            c.addView(heading("Apps de ${d.optString("label")}"))
+            val unusedCount = removable.count { it.idle >= 30 }
+            c.addView(text("${list.size} apps con ícono. $unusedCount sin abrir hace más de un mes. " +
+                "Marca las que sobran: a ${d.optString("label").lowercase()} le llega un aviso y confirma cada una (Android lo exige).", 16f, false, Col.GRIS))
+            if (list.all { it.idle < 0 }) c.addView(text("Falta el permiso de “uso de apps” en su celular: no sé cuáles no usa.", 15f, false, Col.AMARILLO))
+            val send = bigButton("Pedir que quite las marcadas (${chosen.size})", Col.ROJO) { }
+            fun refreshSend() {
+                send.text = "Pedir que quite las marcadas (${chosen.size})"
+            }
+            c.addView(send, full())
+            for (a in sorted) {
+                val detail = buildString {
+                    append(when {
+                        a.idle < 0 -> ""
+                        a.idle >= 999 -> "Nunca la abrió"
+                        a.idle == 0 -> "La usó hoy"
+                        else -> "Sin abrir hace ${a.idle} días"
+                    })
+                    if (a.mins >= 60) append(" · ${a.mins / 60} h ${a.mins % 60} min esta semana")
+                    else if (a.mins > 0) append(" · ${a.mins} min esta semana")
+                    if (a.installDays <= 7) append(" · instalada hace ${a.installDays} días")
+                    if (a.system) append(" · vino con el celular (solo se desactiva)")
+                }
+                val color = when {
+                    a.idle >= 30 -> Col.AMARILLO
+                    a.mins >= 180 -> Col.ROJO
+                    else -> Col.GRIS
+                }
+                lateinit var row: LinearLayout
+                fun draw(on: Boolean): LinearLayout = rowButton(if (on) "☑️" else "⬜", a.name, detail, if (on) Col.ROJO_SUAVE else Col.FONDO,
+                    if (on) "Quitar" else null, on) {
+                    if (a.pkg in chosen) chosen.remove(a.pkg) else chosen.add(a.pkg)
+                    val idx = c.indexOfChild(row)
+                    c.removeView(row)
+                    row = draw(a.pkg in chosen)
+                    c.addView(row, idx, full())
+                    refreshSend()
+                }
+                row = draw(a.pkg in chosen)
+                if (color != Col.GRIS && a.pkg !in chosen) row.background = rounded(Col.BLANCO, 20, color)
+                c.addView(row, full())
+            }
+            send.setOnClickListener {
+                val pick = chosen.toList()
+                Thread {
+                    val ok = Cloud.requestRemoveApps(applicationContext, deviceId, pick)
+                    runOnUiThread {
+                        Toast.makeText(this,
+                            if (!ok) "No se pudo pedir. Revisa el internet."
+                            else if (pick.isEmpty()) "Listo, cancelé el pedido."
+                            else "Listo: en unos minutos le llega el aviso para quitar ${pick.size} app" + (if (pick.size == 1) "." else "s."),
+                            Toast.LENGTH_LONG).show()
+                        if (ok) dlg.dismiss()
+                        load()
+                    }
+                }.start()
+            }
+            c.addView(text("WhatsApp, teléfono, cámara, TeamViewer, la Play Store y las que ella o él decidió conservar no aparecen.", 14f, false, Col.GRIS))
+            c.addView(bigButton("Cerrar", Col.BLANCO, Col.TINTA) { dlg.dismiss() }, full())
+        }
     }
 
     private fun alertRow(c: LinearLayout, a: JSONObject) {

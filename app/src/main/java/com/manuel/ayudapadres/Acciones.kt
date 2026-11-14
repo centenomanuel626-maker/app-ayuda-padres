@@ -32,7 +32,7 @@ class Acciones(private val a: MainActivity) {
 
     /** Botones que solo muestran algo dentro de la app y funcionan igual en modo práctica. */
     private val harmless = setOf(
-        "update", "nointernet", "web", "lento", "quitar", "seguridad", "lupa", "medicinas", "familia", "aprender", "bateria", "espacio"
+        "update", "nointernet", "web", "lento", "quitar", "tema", "pedidas", "xiaomi", "seguridad", "lupa", "medicinas", "familia", "aprender", "bateria", "espacio"
     )
 
     init {
@@ -169,7 +169,10 @@ class Acciones(private val a: MainActivity) {
             }
             "espacio" -> storage()
             "updates" -> updates()
-            "lento" -> a.showReboot()
+            "lento" -> a.showSlow()
+            "tema" -> a.showTheme()
+            "pedidas" -> a.showRemoveRequested()
+            "xiaomi" -> a.showXiaomiSetup()
             "quitar" -> a.showUnused()
             "seguridad" -> a.showSecurity()
         }
@@ -190,7 +193,7 @@ class Acciones(private val a: MainActivity) {
     }
 
     /** Instrucción que sigue visible y se escucha aunque se abra otra pantalla del celular. */
-    private fun guide(msg: String) {
+    fun guide(msg: String) {
         Toast.makeText(a, msg, Toast.LENGTH_LONG).show()
         Speaker.say(a, msg)
     }
@@ -692,6 +695,8 @@ class Acciones(private val a: MainActivity) {
             has("compartir", "mostrar mi pantalla", "mostrarle", "ver mi pantalla") -> run("pantalla")
             has("llama", "llamar") -> run("llamar")
             has("linterna", "luz") -> run("linterna")
+            has("se descarga", "dura poco", "lento", "trabado") -> run("lento")
+            has("tema", "se ve raro", "se ve feo", "pantalla rara", "íconos", "iconos") -> run("tema")
             has("actualiz", "descarg") -> run("updates")
             has("vibr") -> if (p.practice) run("ringer") else setRinger(AudioManager.RINGER_MODE_VIBRATE)
             has("silencio") -> if (p.practice) run("ringer") else setRinger(AudioManager.RINGER_MODE_SILENT)

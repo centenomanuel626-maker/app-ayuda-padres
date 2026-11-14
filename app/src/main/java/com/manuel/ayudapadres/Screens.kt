@@ -199,78 +199,172 @@ private data class Quad(val color: Int, val soft: Int, val title: String, val su
 
 // ---------------- Quitar apps que no uso ----------------
 
-private val protectedApps = setOf(
-    "com.whatsapp", "com.whatsapp.w4b", "com.teamviewer.quicksupport.market", "com.teamviewer.host.market", "com.android.vending",
-    "com.google.android.dialer", "com.samsung.android.dialer", "com.android.dialer", "com.android.contacts",
-    "com.samsung.android.messaging", "com.google.android.apps.messaging", "com.android.mms",
-    "com.android.settings", "com.sec.android.app.camera", "com.android.camera", "com.google.android.GoogleCamera",
-    "com.sec.android.gallery3d", "com.miui.gallery", "com.google.android.apps.photos"
-)
-
-private fun MainActivity.hasUsageAccess(): Boolean {
-    val ops = getSystemService(AppOpsManager::class.java)
-    @Suppress("DEPRECATION")
-    val mode = if (Build.VERSION.SDK_INT >= 29)
-        ops.unsafeCheckOpNoThrow(AppOpsManager.OPSTR_GET_USAGE_STATS, Process.myUid(), packageName)
-    else
-        ops.checkOpNoThrow(AppOpsManager.OPSTR_GET_USAGE_STATS, Process.myUid(), packageName)
-    return mode == AppOpsManager.MODE_ALLOWED
+/** Tarjeta de una app con su ícono, una línea de detalle y botones. */
+private fun MainActivity.appCard(c: LinearLayout, pkg: String, label: String, detail: String, extra: ((LinearLayout) -> Unit)? = null) {
+    val box = card()
+    val row = hbox(12)
+    row.gravity = Gravity.CENTER_VERTICAL
+    val iv = ImageView(this)
+    try { iv.setImageDrawable(packageManager.getApplicationIcon(pkg)) } catch (e: Exception) { }
+    row.addView(iv, LinearLayout.LayoutParams(dp(52), dp(52)))
+    val col = vbox(2)
+    col.addView(text(label, 21f, true))
+    if (detail.isNotEmpty()) col.addView(text(detail, 16f, false, Col.GRIS))
+    row.addView(col, LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f))
+    box.addView(row, full())
+    val system = AppCleanup.isSystem(this, pkg)
+    box.addView(bigButton(if (system) "Desactivar" else "Quitar", Col.BLANCO, Col.ROJO) { acc.uninstall(pkg) }, full())
+    extra?.invoke(box)
+    c.addView(box, full())
 }
 
 fun MainActivity.showUnused() {
     screen = "quitar"
     val c = page(keepScroll = true)
     header(c, "Apps que no usas") { backToCategory() }
-    if (!hasUsageAccess()) {
+    if (RemoveRequest.pending(this).isNotEmpty()) {
+        c.addView(bigButton("Ver las apps que ${prefs.helperName} te sugiere quitar", Col.AZUL) { showRemoveRequested() }, full())
+    }
+    if (!AppCleanup.hasUsageAccess(this)) {
         c.addView(text("Para saber qué apps no usas falta un permiso. ${prefs.helperName} lo tiene que dar una vez en la configuración.", 21f), full())
         return
     }
-    val now = System.currentTimeMillis()
-    val day = 24L * 60 * 60 * 1000
-    val usm = getSystemService(UsageStatsManager::class.java)
-    val usage = usm.queryAndAggregateUsageStats(now - 120 * day, now)
-    val apps = InstallWatch.launcherApps(this)
-    val list = apps.mapNotNull { (pkg, label) ->
-        if (pkg in protectedApps || pkg in prefs.approvedApps) return@mapNotNull null
-        val info = try { packageManager.getPackageInfo(pkg, 0) } catch (e: Exception) { return@mapNotNull null }
-        if (now - info.firstInstallTime < 7 * day) return@mapNotNull null
-        val last = usage[pkg]?.lastTimeUsed ?: 0L
-        val days = if (last > 0) ((now - last) / day).toInt() else 999
-        if (days < 30) null else Triple(pkg, label, days)
-    }.sortedByDescending { it.third }
-
+    val list = AppCleanup.unused(this)
     if (list.isEmpty()) {
         c.addView(text("No hay apps olvidadas. Tu celular está en orden.", 22f, true), full())
         return
     }
     c.addView(text("No las abres hace más de 30 días.", 20f), full())
-    for ((pkg, label, days) in list) {
-        val box = card()
-        val row = hbox(12)
-        row.gravity = Gravity.CENTER_VERTICAL
-        val iv = ImageView(this)
-        try { iv.setImageDrawable(packageManager.getApplicationIcon(pkg)) } catch (e: Exception) { }
-        row.addView(iv, LinearLayout.LayoutParams(dp(52), dp(52)))
-        val col = vbox(2)
-        col.addView(text(label, 21f, true))
-        col.addView(text(if (days >= 999) "Nunca la abriste" else "Sin abrir hace $days días", 16f, false, Col.GRIS))
-        row.addView(col, LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f))
-        box.addView(row, full())
-        val system = try {
-            (packageManager.getApplicationInfo(pkg, 0).flags and ApplicationInfo.FLAG_SYSTEM) != 0
-        } catch (e: Exception) { false }
-        box.addView(bigButton(if (system) "Desactivar" else "Quitar", Col.BLANCO, Col.ROJO) { acc.uninstall(pkg) }, full())
-        c.addView(box, full())
+    for (app in list) {
+        appCard(c, app.pkg, app.label, if (app.idleDays >= 999) "Nunca la abriste" else "Sin abrir hace ${app.idleDays} días")
     }
     c.addView(text("WhatsApp, el teléfono, la cámara, TeamViewer y las apps que ${prefs.helperName} aprobó nunca aparecen aquí.", 16f, false, Col.GRIS), full())
+}
+
+/** Las apps que Manuel sugirió quitar desde su panel. */
+fun MainActivity.showRemoveRequested() {
+    screen = "pedidas"
+    val c = page(keepScroll = true)
+    header(c, "Apps para quitar") { showHome() }
+    val left = RemoveRequest.pending(this)
+    if (left.isEmpty()) {
+        c.addView(text("✅ Listo, ya no queda ninguna. ${prefs.helperName} recibe el aviso.", 22f, true), full())
+        Thread { RemoveRequest.finish(applicationContext) }.start()
+        return
+    }
+    c.addView(text("${prefs.helperName} revisó tu celular y te sugiere quitar estas apps: no las usas o gastan batería. Tú decides.", 20f), full())
+    c.addView(bigButton("Quitar la primera de la lista", Col.ROJO) { acc.uninstall(left.first()) }, full())
+    for (pkg in left) {
+        appCard(c, pkg, AppCleanup.label(this, pkg), "") { box ->
+            box.addView(bigButton("No, la quiero conservar", Col.BLANCO, Col.TINTA) {
+                prefs.keepApps = prefs.keepApps + pkg
+                showRemoveRequested()
+            }, full())
+        }
+    }
+    say("${prefs.helperName} te sugiere quitar ${left.size} app" + (if (left.size == 1) "" else "s") + ". Toca Quitar y luego Aceptar.", "info")
+}
+
+// ---------------- El celular se ve raro (tema o pantalla de inicio) ----------------
+
+fun MainActivity.showTheme() {
+    screen = "tema"
+    val c = page()
+    header(c, "El celular se ve raro") { backToCategory() }
+    val home = AppCleanup.impostorHome(this)
+    if (home != null) {
+        val bad = card(Col.ROJO_SUAVE, Col.ROJO)
+        bad.addView(text("“${home.second}” cambió tu pantalla de inicio", 22f, true, Col.ROJO))
+        bad.addView(text("Por eso el celular se ve distinto, salen anuncios y se gasta la batería.", 19f))
+        bad.addView(bigButton("1. Volver a la pantalla normal", Col.ROJO) {
+            val normal = if (AppCleanup.isXiaomi()) "Pantalla de inicio del sistema" else "la de tu celular"
+            acc.guide("Toca “Pantalla de inicio” y elige “$normal”. No elijas “${home.second}”.")
+            acc.open(Intent(Settings.ACTION_HOME_SETTINGS), Intent(Settings.ACTION_SETTINGS))
+        }, full())
+        bad.addView(bigButton("2. Quitar “${home.second}”", Col.BLANCO, Col.ROJO) { acc.uninstall(home.first) }, full())
+        c.addView(bad, full())
+    }
+    val t = card()
+    t.addView(text(if (home != null) "Después, si los íconos o el fondo siguen raros:" else "Volver al tema de siempre", 22f, true))
+    val xiaomi = AppCleanup.isXiaomi()
+    val samsung = Build.MANUFACTURER.lowercase(Locale.ROOT).contains("samsung")
+    val steps = when {
+        xiaomi -> "1. Abajo a la derecha toca “Perfil” (o “Mi”).\n2. Toca “Temas”.\n3. Elige “Predeterminado” (Default).\n4. Toca “Aplicar”."
+        samsung -> "1. Toca el menú ☰ y luego “Mis cosas”.\n2. Toca “Temas”.\n3. Elige “Predeterminado”.\n4. Toca “Aplicar”."
+        else -> "Busca “Temas” o “Fondo de pantalla y estilo” y elige el que viene con el celular."
+    }
+    t.addView(text(steps, 20f))
+    t.addView(bigButton("Abrir los temas", Col.MORADO) {
+        acc.guide(if (xiaomi) "Toca Perfil abajo a la derecha, luego Temas, elige Predeterminado y toca Aplicar."
+                  else "Elige el tema Predeterminado y toca Aplicar.")
+        val li = listOf("com.android.thememanager", "com.samsung.android.themestore")
+            .firstNotNullOfOrNull { packageManager.getLaunchIntentForPackage(it) }
+        if (li != null) acc.open(li)
+        else acc.open(Intent("android.settings.WALLPAPER_SETTINGS"), Intent(Settings.ACTION_DISPLAY_SETTINGS))
+    }, full())
+    t.addView(text("Los fondos que se mueven (“fondo animado”) también gastan batería: mejor una foto quieta.", 16f, false, Col.GRIS))
+    c.addView(t, full())
+    c.addView(bigButton("Revisar qué más lo pone lento", Col.BLANCO, Col.TINTA) { showSlow() }, full())
+    say(if (home != null) "Otra app cambió tu pantalla de inicio. Toca el botón rojo para volver a la normal."
+        else "Para volver al tema de siempre, toca Abrir los temas y elige Predeterminado.", if (home != null) "warn" else "info")
+}
+
+// ---------------- Lento o se descarga rápido: revisión ----------------
+
+fun MainActivity.showSlow() {
+    screen = "lento"
+    val c = page()
+    header(c, "Lento o se descarga rápido") { backToCategory() }
+    c.addView(text("Revisando tu celular…", 22f, true), full())
+    val ctx = applicationContext
+    Thread {
+        val home = AppCleanup.impostorHome(ctx)
+        val usage = AppCleanup.hasUsageAccess(ctx)
+        val unused = if (usage) AppCleanup.unused(ctx) else emptyList()
+        val heavy = if (usage) AppCleanup.heavy(ctx) else emptyList()
+        val st = android.os.StatFs(android.os.Environment.getDataDirectory().path)
+        val freePct = (st.availableBytes * 100 / maxOf(1L, st.totalBytes)).toInt()
+        val total = InstallWatch.launcherApps(ctx).size
+        runOnUiThread {
+            if (screen != "lento") return@runOnUiThread
+            val p = page()
+            header(p, "Lento o se descarga rápido") { backToCategory() }
+            val said = ArrayList<String>()
+            fun finding(bad: Boolean, title: String, detail: String, btn: String?, action: (() -> Unit)?) {
+                val box = card(if (bad) Col.AMARILLO_SUAVE else Col.VERDE_SUAVE, if (bad) Col.AMARILLO else Col.VERDE)
+                box.addView(text((if (bad) "⚠️ " else "✅ ") + title, 21f, true))
+                if (detail.isNotEmpty()) box.addView(text(detail, 18f))
+                if (btn != null && action != null) box.addView(bigButton(btn, if (bad) Col.AMARILLO else Col.BLANCO, if (bad) Col.BLANCO else Col.TINTA) { action() }, full())
+                p.addView(box, full())
+                if (bad) said.add(title)
+            }
+            if (home != null) finding(true, "“${home.second}” cambió tu pantalla de inicio",
+                "Es lo que más batería gasta y llena el celular de anuncios.", "Arreglarlo") { showTheme() }
+            else finding(false, "La pantalla de inicio es la normal", "", null, null)
+            if (heavy.isNotEmpty()) finding(true, "Estas apps se usan mucho",
+                heavy.joinToString("\n") { "• ${it.label}: ${it.weekMinutes / 60} h ${it.weekMinutes % 60} min esta semana" } +
+                    "\nMientras están abiertas gastan batería.", null, null)
+            if (unused.isNotEmpty()) finding(true, "Tienes ${unused.size} apps que no usas",
+                "Ocupan espacio y algunas trabajan escondidas.", "Ver cuáles") { showUnused() }
+            else if (usage) finding(false, "No hay apps olvidadas", "Tienes $total apps.", null, null)
+            if (freePct < 10) finding(true, "Queda poco espacio ($freePct % libre)", "Con poco espacio todo va lento.", "Liberar espacio") { acc.run("espacio") }
+            if (RemoveRequest.pending(this).isNotEmpty()) finding(true, "${prefs.helperName} te sugirió quitar unas apps", "", "Verlas") { showRemoveRequested() }
+            finding(false, "Reiniciar una vez por semana ayuda", "Cierra todo lo que quedó trabado.", "Cómo reiniciarlo") { showReboot() }
+            if (!usage) p.addView(text("Para revisar el uso de cada app falta un permiso que ${prefs.helperName} da en la configuración.", 16f, false, Col.GRIS), full())
+            p.addView(bigButton("Si no se arregla, llamar a ${prefs.helperName}", Col.VERDE) { acc.run("llamar") }, full())
+            say(if (said.isEmpty()) "Todo se ve en orden. Si sigue lento, reinícialo."
+                else "Encontré ${said.size} cosa" + (if (said.size == 1) "" else "s") + ": " + said.joinToString(". ") + ".",
+                if (said.isEmpty()) "ok" else "warn")
+        }
+    }.start()
 }
 
 // ---------------- Celular lento ----------------
 
 fun MainActivity.showReboot() {
-    screen = "lento"
+    screen = "reiniciar"
     val c = page()
-    header(c, "Celular lento o trabado") { backToCategory() }
+    header(c, "Cómo reiniciarlo") { showSlow() }
     c.addView(text("Reiniciarlo casi siempre lo arregla.", 22f, true), full())
     val brand = Build.MANUFACTURER.lowercase(Locale.ROOT)
     val steps = if (brand.contains("samsung")) listOf(

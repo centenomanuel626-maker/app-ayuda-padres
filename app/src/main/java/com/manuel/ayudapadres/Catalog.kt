@@ -10,7 +10,7 @@ object Catalog {
     val cats = listOf(
         Cat("internet", "Internet", "📶", Col.AZUL, listOf("wifi", "nointernet", "web", "bluetooth", "datos")),
         Cat("sonido", "Sonido y pantalla", "🔊", Col.MORADO,
-            listOf("ringer", "volumen", "letra", "notif", "brillo", "apagado", "girar")),
+            listOf("ringer", "volumen", "letra", "notif", "brillo", "apagado", "girar", "tema")),
         Cat("ayuda", "Ayuda", "🤝", Col.VERDE_AZUL,
             listOf("llamar", "pantalla", "familia", "video", "remoto", "olvide", "estoybien", "emergencia", "aprender")),
         Cat("celular", "Mi celular", "📱", Col.NARANJA,
@@ -50,7 +50,8 @@ object Catalog {
         "clave" -> Btn(id, "🔒", "Contraseña de bloqueo", "Poner o cambiar la clave")
         "espacio" -> Btn(id, "🧹", "Liberar espacio", "Cuando dice “almacenamiento lleno”")
         "updates" -> Btn(id, "⬇️", "Actualizaciones", "Tener el celular al día")
-        "lento" -> Btn(id, "🐢", "Mi celular está lento o trabado", "Cómo reiniciarlo")
+        "lento" -> Btn(id, "🐢", "Lento o se descarga rápido", "Reviso qué lo causa y cómo arreglarlo")
+        "tema" -> Btn(id, "🎨", "El celular se ve raro", "Volver a la pantalla y el tema normales")
         "quitar" -> Btn(id, "🗑️", "Quitar apps que no uso", "Juegos y apps olvidadas")
         "seguridad" -> Btn(id, "🛡️", "Revisión de seguridad", "¿Alguien espía mi celular?")
         else -> Btn(id, "❔", id, "")

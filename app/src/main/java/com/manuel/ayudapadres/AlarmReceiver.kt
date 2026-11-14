@@ -50,6 +50,11 @@ class AlarmReceiver : BroadcastReceiver() {
                 }.start()
             }
 
+            Alarms.ACTION_NOCHE -> {
+                Alarms.scheduleNight(ctx)
+                BatteryCoach.night(ctx)
+            }
+
             Alarms.ACTION_APP_OK -> {
                 val pkg = intent.getStringExtra("pkg") ?: return
                 val label = intent.getStringExtra("label") ?: pkg

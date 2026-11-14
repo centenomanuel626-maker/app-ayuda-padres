@@ -98,6 +98,16 @@ class ReportJobService : JobService() {
 
             Cloud.fetchHiddenCategories(ctx)?.let { p.hiddenCats = it }
 
+            // Código de familia nuevo pedido desde el panel de Manuel.
+            val pending = Cloud.fetchPendingCode(ctx)
+            if (pending != null && FamilyCode.isStrong(pending) && !pending.equals(p.familyCode, ignoreCase = true)) {
+                val adopted = Cloud.adoptCode(ctx)
+                if (adopted != null && adopted.equals(pending, ignoreCase = true)) {
+                    p.familyCode = adopted
+                    Cloud.alert(ctx, "info", "Cambió al código de familia nuevo.")
+                }
+            }
+
             // Actualización pedida desde el panel de Manuel.
             val wanted = Cloud.fetchUpdateRequest(ctx)
             if (wanted > Updater.current) Updater.runInBackground(ctx, wanted)

@@ -87,6 +87,30 @@ object Cloud {
         }
     }
 
+    /** Código de familia nuevo que Manuel pidió (o null si no hay ninguno pendiente). */
+    fun fetchPendingCode(ctx: Context): String? {
+        val txt = request(ctx, "GET", "devices?select=new_family_code&id=eq." + enc(Prefs(ctx).deviceId)) ?: return null
+        return try {
+            val arr = JSONArray(txt)
+            if (arr.length() == 0 || arr.getJSONObject(0).isNull("new_family_code")) null
+            else arr.getJSONObject(0).getString("new_family_code")
+        } catch (e: Exception) {
+            null
+        }
+    }
+
+    /** Pasa este celular (y sus avisos) al código pendiente. Devuelve el código adoptado. */
+    fun adoptCode(ctx: Context): String? {
+        val txt = request(ctx, "POST", "rpc/adopt_family_code", JSONObject().put("target_device", Prefs(ctx).deviceId).toString())
+            ?: return null
+        val t = txt.trim()
+        return if (t.length > 2 && t.startsWith("\"")) t.trim('"') else null
+    }
+
+    /** Manuel pide cambiar el código de toda la familia. */
+    fun rotateCode(ctx: Context, newCode: String): Boolean =
+        request(ctx, "POST", "rpc/rotate_family_code", JSONObject().put("new_code", newCode).toString()) != null
+
     fun requestUpdate(ctx: Context, deviceId: String, code: Int): Boolean =
         request(ctx, "POST", "rpc/request_update", JSONObject().put("target_device", deviceId).put("code", code).toString()) != null
 

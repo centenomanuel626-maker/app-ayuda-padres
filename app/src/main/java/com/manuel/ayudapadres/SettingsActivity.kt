@@ -95,7 +95,10 @@ class SettingsActivity : Activity() {
         } else {
             c.addView(editRow("Tu nombre", prefs.helperName) { prefs.helperName = it }, full())
         }
-        c.addView(editRow("Código de familia", prefs.familyCode.ifEmpty { "Sin código" }, raw = prefs.familyCode) { prefs.familyCode = it }, full())
+        c.addView(editRow("Código de familia", prefs.familyCode.ifEmpty { "Sin código" }, raw = prefs.familyCode) {
+            if (FamilyCode.isStrong(it)) prefs.familyCode = it
+            else Toast.makeText(this, FamilyCode.WEAK_MSG, Toast.LENGTH_LONG).show()
+        }, full())
         val cloud = card(if (Cloud.configured(this)) Col.VERDE_SUAVE else Col.AMARILLO_SUAVE, null)
         cloud.addView(text(
             when {

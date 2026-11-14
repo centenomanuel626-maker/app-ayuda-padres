@@ -94,6 +94,14 @@ class PanelActivity : Activity() {
         head.addView(settings)
         c.addView(head, full())
         c.addView(text("Código de familia: ${prefs.familyCode}", 16f, false, Col.GRIS), full())
+        if (prefs.familyCode.isNotEmpty() && !FamilyCode.isStrong(prefs.familyCode)) {
+            val weak = card(Col.ROJO_SUAVE, Col.ROJO)
+            weak.addView(text("🔴 Tu código de familia es muy fácil de adivinar. Cualquiera que lo adivine vería las emergencias y ubicaciones.", 17f, true, Col.ROJO))
+            c.addView(weak, full())
+        }
+        c.addView(rowButton("🔑", "Cambiar el código de familia", "Los celulares de tus padres lo reciben solos", Col.VERDE_AZUL) {
+            changeCode()
+        }, full())
         c.addView(rowButton("🛡️", "Revisar este celular", "¿Alguien espía o alteró mi propio celular?", Col.NARANJA) {
             checkThisPhone()
         }, full())
@@ -120,7 +128,10 @@ class PanelActivity : Activity() {
         if (d == null) {
             c.addView(text("Cargando…", 18f, false, Col.GRIS))
         } else if (d.length() == 0) {
-            c.addView(text("Todavía no hay celulares. Instala la app en el celular de tus padres y escribe el código de familia.", 18f), full())
+            val none = card(Col.AMARILLO_SUAVE, Col.AMARILLO)
+            none.addView(text("No encuentro ningún celular con tu código.", 19f, true))
+            none.addView(text("Revisa que en los celulares de tus padres esté exactamente el mismo código: ${prefs.familyCode}\n(⚙️ → PIN → Código de familia).", 16f))
+            c.addView(none, full())
         } else {
             for (i in 0 until d.length()) deviceCard(c, d.getJSONObject(i))
         }
@@ -135,6 +146,34 @@ class PanelActivity : Activity() {
         } else {
             for (i in 0 until a.length()) alertRow(c, a.getJSONObject(i))
         }
+    }
+
+    /** Genera un código nuevo y fuerte; los celulares de la familia lo adoptan en su siguiente reporte. */
+    private fun changeCode() {
+        android.app.AlertDialog.Builder(this)
+            .setTitle("¿Cambiar el código de familia?")
+            .setMessage("Se crea un código nuevo y difícil de adivinar. Los celulares de tus padres lo toman solos en los próximos 15 minutos (necesitan la versión 1.0.26 o más nueva).")
+            .setPositiveButton("Cambiar") { _, _ ->
+                val nuevo = FamilyCode.generate()
+                Thread {
+                    val ok = Cloud.rotateCode(applicationContext, nuevo)
+                    runOnUiThread {
+                        if (!ok) {
+                            Toast.makeText(this, "No se pudo cambiar. Revisa el internet.", Toast.LENGTH_LONG).show()
+                            return@runOnUiThread
+                        }
+                        prefs.familyCode = nuevo
+                        android.app.AlertDialog.Builder(this)
+                            .setTitle("Código nuevo")
+                            .setMessage("$nuevo\n\nGuárdalo. Los celulares de tus padres lo toman solos; si alguno estaba apagado, lo toma cuando vuelva a tener internet.")
+                            .setPositiveButton("Listo", null)
+                            .show()
+                        load()
+                    }
+                }.start()
+            }
+            .setNegativeButton("Cancelar", null)
+            .show()
     }
 
     /** Revisión de seguridad del propio celular de Manuel. */

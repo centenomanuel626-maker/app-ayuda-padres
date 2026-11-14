@@ -98,6 +98,8 @@ class DiagnosticsActivity : Activity() {
         if (Build.MANUFACTURER.lowercase().let { it.contains("xiaomi") || it.contains("redmi") || it.contains("poco") }) {
             out += Row("Inicio automático (Xiaomi)", Lv.WARN, "No se puede comprobar solo: revisa que esté activado", "settings")
         }
+        out += if (FamilyCode.isStrong(prefs.familyCode)) Row("Código de familia", Lv.OK, "Fuerte")
+               else Row("Código de familia", Lv.BAD, "Muy fácil de adivinar: cámbialo desde el panel de ${prefs.helperName}", "settings")
         val js = getSystemService(JobScheduler::class.java)
         out += if (js.getPendingJob(77) != null) Row("Reporte automático", Lv.OK, "Programado cada 15 minutos")
                else Row("Reporte automático", Lv.BAD, "No está programado").also { ReportJobService.schedule(this) }

@@ -242,3 +242,6 @@ as $$
 $$;
 
 grant execute on function public.request_update(text, int) to anon;
+
+-- Cambiar el código de familia a distancia (ver migración codigo_familia_a_distancia en Supabase):
+-- columna devices.new_family_code y funciones rotate_family_code / adopt_family_code.

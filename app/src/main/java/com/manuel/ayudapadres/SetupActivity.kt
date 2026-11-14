@@ -58,6 +58,11 @@ class SetupActivity : Activity() {
                 Toast.makeText(this, "Escribe tu teléfono con código de país", Toast.LENGTH_LONG).show()
                 return@bigButton
             }
+            val codeText = code.text.toString().trim()
+            if (codeText.isNotEmpty() && !FamilyCode.isStrong(codeText)) {
+                Toast.makeText(this, FamilyCode.WEAK_MSG, Toast.LENGTH_LONG).show()
+                return@bigButton
+            }
             val pinText = pin.text.toString().trim()
             if (pinText.length < 4 || !pinText.all { it.isDigit() }) {
                 Toast.makeText(this, "Escribe un PIN de al menos 4 números", Toast.LENGTH_LONG).show()
@@ -105,6 +110,10 @@ class SetupActivity : Activity() {
             c.addView(warn, full())
         }
         c.addView(bigButton("Listo", Col.VERDE) {
+            if (!FamilyCode.isStrong(code.text.toString())) {
+                Toast.makeText(this, FamilyCode.WEAK_MSG, Toast.LENGTH_LONG).show()
+                return@bigButton
+            }
             prefs.helperName = helper.text.toString().trim().ifEmpty { "Manuel" }
             prefs.familyCode = code.text.toString()
             prefs.role = "manuel"

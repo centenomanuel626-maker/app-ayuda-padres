@@ -15,6 +15,7 @@ object Ids {
     const val NOCHE = 5
     const val QUITAR = 6
     const val PANTALLA_INICIO = 7
+    const val UBICACION = 8
     fun med(id: Int) = 1000 + id
     fun newApp(pkg: String) = 5000 + (pkg.hashCode() and 0xFFFF)
     fun alert(id: Long) = 200000 + (id % 100000).toInt()

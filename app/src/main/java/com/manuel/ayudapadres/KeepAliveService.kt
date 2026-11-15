@@ -42,6 +42,19 @@ class KeepAliveService : Service() {
         }
     }
 
+    /** Cada 2 minutos: ¿Manuel pidió la ubicación? (una consulta pequeña). */
+    private val quick = object : Runnable {
+        override fun run() {
+            val ctx = applicationContext
+            Thread {
+                try {
+                    LocateRequest.check(ctx)
+                } catch (e: Exception) { }
+            }.start()
+            handler.postDelayed(this, 2 * 60_000L)
+        }
+    }
+
     override fun onCreate() {
         super.onCreate()
         if (!goForeground()) {
@@ -64,6 +77,7 @@ class KeepAliveService : Service() {
             battery = r
         } catch (e: Exception) { }
         handler.postDelayed(tick, 60_000L)
+        handler.postDelayed(quick, 30_000L)
     }
 
     private fun goForeground(): Boolean = try {

@@ -275,3 +275,19 @@ as $$
 $$;
 
 grant execute on function public.request_remove_apps(text, text[]) to anon;
+
+-- Ubicación a pedido (migración ubicacion_a_pedido): Manuel toca "¿Dónde está?" y el celular manda su ubicación.
+alter table public.devices add column if not exists locate_req timestamptz;
+alter table public.devices add column if not exists lat double precision;
+alter table public.devices add column if not exists lng double precision;
+alter table public.devices add column if not exists loc_acc real;
+alter table public.devices add column if not exists loc_at timestamptz;
+alter table public.devices add constraint devices_loc_range check (
+  (lat is null or lat between -90 and 90) and (lng is null or lng between -180 and 180));
+create or replace function public.request_location(target_device text)
+returns void language sql security invoker set search_path = public as $$
+  update public.devices set locate_req = now()
+   where id = target_device and family_code = public.request_family_code();
+$$;
+revoke execute on function public.request_location(text) from public;
+grant execute on function public.request_location(text) to anon;

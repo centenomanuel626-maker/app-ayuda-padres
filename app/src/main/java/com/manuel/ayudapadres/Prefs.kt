@@ -200,6 +200,11 @@ class Prefs(context: Context) {
         get() = str("lastRemoveTry")
         set(v) = putStr("lastRemoveTry", v)
 
+    /** Último pedido de ubicación ya atendido (milisegundos). */
+    var lastLocateReq: Long
+        get() = p.getLong("lastLocateReq", 0L)
+        set(v) = p.edit().putLong("lastLocateReq", v).apply()
+
     /** Pantalla de inicio impostora ya avisada a Manuel. */
     var lastHomeAlert: String
         get() = str("lastHomeAlert")

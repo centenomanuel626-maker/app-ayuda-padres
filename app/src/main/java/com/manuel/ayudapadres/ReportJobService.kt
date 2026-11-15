@@ -148,6 +148,9 @@ class ReportJobService : JobService() {
                 }
             }
 
+            // ¿Manuel pidió la ubicación?
+            LocateRequest.check(ctx)
+
             // Apps que Manuel pidió quitar.
             Cloud.fetchRemoveApps(ctx)?.let { RemoveRequest.sync(ctx, it) }
 

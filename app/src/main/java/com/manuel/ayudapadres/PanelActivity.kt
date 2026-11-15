@@ -317,6 +317,36 @@ class PanelActivity : Activity() {
             box.addView(bigButton("📱 Ver sus apps (${apps.length()}) y elegir cuáles quitar", Col.AZUL) { showApps(d) }, full())
         }
 
+        // Ubicación a pedido.
+        val verNum = d.optString("version").substringAfterLast('.').toIntOrNull() ?: 0
+        if (!d.isNull("lat") && !d.isNull("lng") && d.has("lat")) {
+            val lat = d.optDouble("lat")
+            val lng = d.optDouble("lng")
+            val acc = if (d.isNull("loc_acc")) "" else " (±${d.optDouble("loc_acc").toInt()} m)"
+            val cuando = if (d.isNull("loc_at")) "" else ago(d.optString("loc_at"))
+            box.addView(text("📍 Última ubicación: $cuando$acc", 15f, false, Col.TINTA), full())
+            box.addView(bigButton("Ver en el mapa", Col.BLANCO, Col.TINTA) {
+                try {
+                    startActivity(Intent(Intent.ACTION_VIEW, Uri.parse("https://maps.google.com/?q=$lat,$lng")))
+                } catch (e: Exception) { }
+            }, full())
+        }
+        val devId = d.optString("id")
+        box.addView(bigButton(if (verNum >= 29) "📍 ¿Dónde está ahora?" else "📍 ¿Dónde está? (necesita la 1.0.29)", Col.AZUL) {
+            if (verNum < 29) {
+                Toast.makeText(this, "Su celular todavía no tiene la versión que manda la ubicación. Pídele que actualice.", Toast.LENGTH_LONG).show()
+                return@bigButton
+            }
+            Thread {
+                val ok = Cloud.requestLocation(applicationContext, devId)
+                runOnUiThread {
+                    Toast.makeText(this,
+                        if (ok) "Pedido. En 1 a 3 minutos aparece aquí: toca Recargar el panel. A ${d.optString("label").lowercase()} le sale un aviso de que la viste."
+                        else "No se pudo pedir. Revisa el internet.", Toast.LENGTH_LONG).show()
+                }
+            }.start()
+        }, full())
+
         val diag = d.optString("diagnostic", "")
         if (diag.isNotEmpty() && diag != "null") {
             val ok = diag.contains("Todo funciona")

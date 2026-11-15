@@ -139,11 +139,27 @@ object Cloud {
         }
     }
 
+    /** Momento (ms) en que Manuel pidió la ubicación, o null si no hay pedido / no hay conexión. */
+    fun fetchLocateRequest(ctx: Context): Long? {
+        val txt = request(ctx, "GET", "devices?select=locate_req&id=eq." + enc(Prefs(ctx).deviceId)) ?: return null
+        return try {
+            val arr = JSONArray(txt)
+            if (arr.length() == 0 || arr.getJSONObject(0).isNull("locate_req")) null
+            else java.time.OffsetDateTime.parse(arr.getJSONObject(0).getString("locate_req")).toInstant().toEpochMilli()
+        } catch (e: Exception) {
+            null
+        }
+    }
+
     /** Este celular terminó con el pedido de quitar apps. */
     fun clearRemoveApps(ctx: Context): Boolean =
         reportStatus(ctx, JSONObject().put("remove_apps", JSONArray()))
 
     // ---------- Celular de Manuel ----------
+
+    /** Manuel pide la ubicación actual de ese celular. */
+    fun requestLocation(ctx: Context, deviceId: String): Boolean =
+        request(ctx, "POST", "rpc/request_location", JSONObject().put("target_device", deviceId).toString()) != null
 
     /** Manuel pide que en ese celular se quiten estas apps (la persona confirma cada una). */
     fun requestRemoveApps(ctx: Context, deviceId: String, pkgs: Collection<String>): Boolean {

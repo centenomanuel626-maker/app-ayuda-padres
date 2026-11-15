@@ -190,6 +190,16 @@ class Prefs(context: Context) {
         get() = strSet("removeRequest")
         set(v) = putSet("removeRequest", v)
 
+    /** Quitar apps en cadena: al volver de cada "¿Desinstalar?" se abre sola la siguiente. */
+    var autoRemove: Boolean
+        get() = p.getBoolean("autoRemove", false)
+        set(v) = p.edit().putBoolean("autoRemove", v).apply()
+
+    /** Última app que se intentó quitar en cadena (para saber si tocó "Cancelar"). */
+    var lastRemoveTry: String
+        get() = str("lastRemoveTry")
+        set(v) = putStr("lastRemoveTry", v)
+
     /** Pantalla de inicio impostora ya avisada a Manuel. */
     var lastHomeAlert: String
         get() = str("lastHomeAlert")

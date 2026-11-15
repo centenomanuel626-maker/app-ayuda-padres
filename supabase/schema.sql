@@ -260,7 +260,7 @@ alter table public.devices
   add constraint devices_cleanup_len check (
     length(coalesce(home_app,'')) <= 100 and length(coalesce(phone_setup,'')) <= 300 and
     (apps is null or (jsonb_typeof(apps) = 'array' and length(apps::text) <= 40000)) and
-    coalesce(array_length(remove_apps, 1), 0) <= 40);
+    coalesce(array_length(remove_apps, 1), 0) <= 100);
 
 create or replace function public.request_remove_apps(target_device text, pkgs text[])
 returns void
@@ -270,7 +270,7 @@ set search_path = public
 as $$
   update public.devices set remove_apps = pkgs
    where id = target_device and family_code = public.request_family_code()
-     and coalesce(array_length(pkgs, 1), 0) <= 40
+     and coalesce(array_length(pkgs, 1), 0) <= 100
      and not exists (select 1 from unnest(pkgs) p where p !~ '^[A-Za-z0-9_.]{1,200}$');
 $$;
 

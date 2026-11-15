@@ -148,7 +148,7 @@ object Cloud {
     /** Manuel pide que en ese celular se quiten estas apps (la persona confirma cada una). */
     fun requestRemoveApps(ctx: Context, deviceId: String, pkgs: Collection<String>): Boolean {
         val arr = JSONArray()
-        pkgs.take(40).forEach { arr.put(it) }
+        pkgs.take(100).forEach { arr.put(it) }
         return request(
             ctx, "POST", "rpc/request_remove_apps",
             JSONObject().put("target_device", deviceId).put("pkgs", arr).toString()

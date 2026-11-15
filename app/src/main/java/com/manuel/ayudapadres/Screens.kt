@@ -242,18 +242,72 @@ fun MainActivity.showUnused() {
 }
 
 /** Las apps que Manuel sugirió quitar desde su panel. */
+/** Cambia cada vez que se dibuja la pantalla: evita abrir dos "¿Desinstalar?" seguidos. */
+private var pedidasSeq = 0
+
 fun MainActivity.showRemoveRequested() {
     screen = "pedidas"
+    val seq = ++pedidasSeq
     val c = page(keepScroll = true)
-    header(c, "Apps para quitar") { showHome() }
+    header(c, "Apps para quitar") {
+        prefs.autoRemove = false
+        showHome()
+    }
     val left = RemoveRequest.pending(this)
+    val total = prefs.removeRequest.size
     if (left.isEmpty()) {
+        prefs.autoRemove = false
         c.addView(text("✅ Listo, ya no queda ninguna. ${prefs.helperName} recibe el aviso.", 22f, true), full())
+        say("Listo, terminaste. Gracias.", "ok")
         Thread { RemoveRequest.finish(applicationContext) }.start()
         return
     }
-    c.addView(text("${prefs.helperName} revisó tu celular y te sugiere quitar estas apps: no las usas o gastan batería. Tú decides.", 20f), full())
-    c.addView(bigButton("Quitar la primera de la lista", Col.ROJO) { acc.uninstall(left.first()) }, full())
+    val done = (total - left.size).coerceAtLeast(0)
+    // Si volvió de "¿Desinstalar?" y la app sigue ahí, tocó Cancelar: se pausa la cadena.
+    if (prefs.autoRemove && prefs.lastRemoveTry.isNotEmpty() && prefs.lastRemoveTry in left) {
+        prefs.autoRemove = false
+        val name = AppCleanup.label(this, prefs.lastRemoveTry)
+        val keep = card(Col.AMARILLO_SUAVE, Col.AMARILLO)
+        keep.addView(text("No quitaste “$name”. ¿La quieres conservar?", 20f, true))
+        val tried = prefs.lastRemoveTry
+        keep.addView(bigButton("Sí, conservarla y seguir", Col.VERDE) {
+            prefs.keepApps = prefs.keepApps + tried
+            prefs.lastRemoveTry = ""
+            prefs.autoRemove = true
+            showRemoveRequested()
+        }, full())
+        keep.addView(bigButton("No, intentar otra vez", Col.ROJO) {
+            prefs.lastRemoveTry = ""
+            prefs.autoRemove = true
+            showRemoveRequested()
+        }, full())
+        c.addView(keep, full())
+    }
+    if (prefs.autoRemove) {
+        val run = card(Col.ROJO_SUAVE, Col.ROJO)
+        run.addView(text("Quitando: van $done de $total", 22f, true, Col.ROJO))
+        run.addView(text("Cuando salga “¿Desinstalar?”, toca Aceptar. La siguiente sale sola.", 19f))
+        run.addView(bigButton("⏸ Parar y seguir después", Col.BLANCO, Col.TINTA) {
+            prefs.autoRemove = false
+            showRemoveRequested()
+        }, full())
+        c.addView(run, full())
+        val next = left.first()
+        prefs.lastRemoveTry = next
+        if (done > 0 && done % 10 == 0) Speaker.say(this, "Van $done de $total. Muy bien.")
+        scroll.postDelayed({
+            if (seq == pedidasSeq && screen == "pedidas" && prefs.autoRemove && !isFinishing) acc.uninstall(next, quiet = true)
+        }, 900)
+    } else {
+        c.addView(text("${prefs.helperName} revisó tu celular y te sugiere quitar ${left.size} apps: no las usas o gastan batería." +
+            (if (done > 0) " Ya quitaste $done." else ""), 20f), full())
+        c.addView(bigButton("▶ Empezar a quitarlas", Col.ROJO) {
+            prefs.lastRemoveTry = ""
+            prefs.autoRemove = true
+            showRemoveRequested()
+        }, full())
+        c.addView(text("Solo tienes que tocar “Aceptar” en cada una. Puedes parar cuando quieras.", 17f, false, Col.GRIS), full())
+    }
     for (pkg in left) {
         appCard(c, pkg, AppCleanup.label(this, pkg), "") { box ->
             box.addView(bigButton("No, la quiero conservar", Col.BLANCO, Col.TINTA) {
@@ -262,7 +316,7 @@ fun MainActivity.showRemoveRequested() {
             }, full())
         }
     }
-    say("${prefs.helperName} te sugiere quitar ${left.size} app" + (if (left.size == 1) "" else "s") + ". Toca Quitar y luego Aceptar.", "info")
+    if (!prefs.autoRemove) say("${prefs.helperName} te sugiere quitar ${left.size} app" + (if (left.size == 1) "" else "s") + ". Toca Empezar y después Aceptar en cada una.", "info")
 }
 
 // ---------------- El celular se ve raro (tema o pantalla de inicio) ----------------

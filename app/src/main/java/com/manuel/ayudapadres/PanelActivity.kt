@@ -399,9 +399,32 @@ class PanelActivity : Activity() {
                 "Marca las que sobran: a ${d.optString("label").lowercase()} le llega un aviso y confirma cada una (Android lo exige).", 16f, false, Col.GRIS))
             if (list.all { it.idle < 0 }) c.addView(text("Falta el permiso de “uso de apps” en su celular: no sé cuáles no usa.", 15f, false, Col.AMARILLO))
             val send = bigButton("Pedir que quite las marcadas (${chosen.size})", Col.ROJO) { }
+            val redraws = ArrayList<() -> Unit>()
             fun refreshSend() {
-                send.text = "Pedir que quite las marcadas (${chosen.size})"
+                send.text = if (chosen.size > 100) "Pedir que quite las marcadas (100 de ${chosen.size})"
+                            else "Pedir que quite las marcadas (${chosen.size})"
             }
+            fun markAll(pick: (A) -> Boolean) {
+                chosen.clear()
+                sorted.filter(pick).forEach { chosen.add(it.pkg) }
+                redraws.forEach { it() }
+                refreshSend()
+            }
+            val junkCount = sorted.count { AppCleanup.looksJunk(it.name) }
+            val idleCount = sorted.count { it.idle >= 30 }
+            val r1 = hbox(10)
+            r1.addView(bigButton("🧹 Sospechosas ($junkCount)", Col.AMARILLO) { markAll { AppCleanup.looksJunk(it.name) } },
+                LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f))
+            r1.addView(bigButton("💤 Sin usar ($idleCount)", Col.AMARILLO) { markAll { it.idle >= 30 } },
+                LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f))
+            c.addView(r1, full())
+            val r2 = hbox(10)
+            r2.addView(bigButton("☑️ Todas (${sorted.size})", Col.BLANCO, Col.TINTA) { markAll { true } },
+                LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f))
+            r2.addView(bigButton("⬜ Ninguna", Col.BLANCO, Col.TINTA) { markAll { false } },
+                LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f))
+            c.addView(r2, full())
+            c.addView(text("“Sospechosas”: limpiadores, VPN, lectores de PDF, préstamos y parecidas. Revisa la lista antes de pedir: puedes desmarcar las que quiera conservar.", 14f, false, Col.GRIS))
             c.addView(send, full())
             for (a in sorted) {
                 val detail = buildString {
@@ -434,9 +457,18 @@ class PanelActivity : Activity() {
                 row = draw(a.pkg in chosen)
                 if (color != Col.GRIS && a.pkg !in chosen) row.background = rounded(Col.BLANCO, 20, color)
                 c.addView(row, full())
+                redraws.add {
+                    val idx = c.indexOfChild(row)
+                    if (idx >= 0) {
+                        c.removeView(row)
+                        row = draw(a.pkg in chosen)
+                        if (color != Col.GRIS && a.pkg !in chosen) row.background = rounded(Col.BLANCO, 20, color)
+                        c.addView(row, idx, full())
+                    }
+                }
             }
             send.setOnClickListener {
-                val pick = chosen.toList()
+                val pick = chosen.toList().take(100)
                 Thread {
                     val ok = Cloud.requestRemoveApps(applicationContext, deviceId, pick)
                     runOnUiThread {

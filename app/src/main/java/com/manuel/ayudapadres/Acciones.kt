@@ -600,7 +600,7 @@ class Acciones(private val a: MainActivity) {
     }
 
     /** Quita una app: si vino con el celular solo se puede desactivar. */
-    fun uninstall(pkg: String) {
+    fun uninstall(pkg: String, quiet: Boolean = false) {
         if (p.practice) {
             a.say("Modo práctica: no quité nada.", "info")
             return
@@ -615,7 +615,7 @@ class Acciones(private val a: MainActivity) {
             guide("Esta app vino con el celular. Toca “Desactivar”.")
             open(Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS, Uri.parse("package:$pkg")))
         } else {
-            a.say("Toca “Aceptar” para quitarla.", "info")
+            if (!quiet) a.say("Toca “Aceptar” para quitarla.", "info")
             open(Intent(Intent.ACTION_DELETE, Uri.parse("package:$pkg")))
         }
     }

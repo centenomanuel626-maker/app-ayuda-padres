@@ -30,6 +30,16 @@ object AppCleanup {
         "com.google.android.calendar", "com.google.android.contacts", "com.miui.home", "com.sec.android.app.launcher"
     )
 
+    private val junk = Regex(
+        "(clean|limpi|booster|boost|acelera|vpn|clicker|pulsador|recover|recuperar|pdf|scanner|escáner|escaner|" +
+            "junk|basura|antivirus|virus|speed|battery saver|ahorro de bater|cooler|enfriar|wallpaper|launcher|theme|" +
+            "préstamo|prestamo|loan|crypto|ganho|earn|cash|flash)",
+        RegexOption.IGNORE_CASE
+    )
+
+    /** Nombres típicos de las apps que llegan por anuncios (limpiadores, VPN, lectores de PDF, préstamos…). */
+    fun looksJunk(name: String): Boolean = junk.containsMatchIn(name)
+
     fun isXiaomi(): Boolean = Build.MANUFACTURER.lowercase().let { it.contains("xiaomi") || it.contains("redmi") || it.contains("poco") }
 
     fun hasUsageAccess(ctx: Context): Boolean = try {
@@ -53,6 +63,13 @@ object AppCleanup {
     fun installed(ctx: Context, pkg: String): Boolean = try {
         ctx.packageManager.getPackageInfo(pkg, 0)
         true
+    } catch (e: Exception) {
+        false
+    }
+
+    /** Instalada y activa (una app de sistema desactivada cuenta como quitada). */
+    fun present(ctx: Context, pkg: String): Boolean = try {
+        ctx.packageManager.getApplicationInfo(pkg, 0).enabled
     } catch (e: Exception) {
         false
     }
@@ -151,7 +168,7 @@ object RemoveRequest {
     /** Las que siguen instaladas y la persona no pidió conservar. */
     fun pending(ctx: Context): List<String> {
         val p = Prefs(ctx)
-        return p.removeRequest.filter { AppCleanup.installed(ctx, it) && it !in p.keepApps && it !in AppCleanup.protectedApps }
+        return p.removeRequest.filter { AppCleanup.present(ctx, it) && it !in p.keepApps && it !in AppCleanup.protectedApps }
             .sortedBy { AppCleanup.label(ctx, it).lowercase() }
     }
 
@@ -192,8 +209,8 @@ object RemoveRequest {
         val p = Prefs(ctx)
         val asked = p.removeRequest
         if (asked.isEmpty()) return
-        val removed = asked.count { !AppCleanup.installed(ctx, it) }
-        val kept = asked.filter { AppCleanup.installed(ctx, it) && it in p.keepApps }.map { AppCleanup.label(ctx, it) }
+        val removed = asked.count { !AppCleanup.present(ctx, it) }
+        val kept = asked.filter { AppCleanup.present(ctx, it) && it in p.keepApps }.map { AppCleanup.label(ctx, it) }
         if (!Cloud.clearRemoveApps(ctx)) return
         p.removeRequest = emptySet()
         p.removeNotified = ""

@@ -16,6 +16,12 @@ object Ids {
     const val QUITAR = 6
     const val PANTALLA_INICIO = 7
     const val UBICACION = 8
+    const val AVISO_MANUEL = 9
+    const val RESUMEN = 10
+    const val APP_BASURA = 11
+    const val ACTUALIZAR = 6000
+    fun reminder(id: Long) = 700000 + (id % 100000).toInt()
+    fun reminderAlarm(id: Long, n: Int) = 800000 + ((id % 60000).toInt() * 3) + n
     fun med(id: Int) = 1000 + id
     fun newApp(pkg: String) = 5000 + (pkg.hashCode() and 0xFFFF)
     fun alert(id: Long) = 200000 + (id % 100000).toInt()
@@ -28,6 +34,7 @@ object Alarms {
     const val ACTION_ESTOY_BIEN_ENVIAR = "com.manuel.ayudapadres.ESTOY_BIEN_ENVIAR"
     const val ACTION_APP_OK = "com.manuel.ayudapadres.APP_OK"
     const val ACTION_NOCHE = "com.manuel.ayudapadres.NOCHE"
+    const val ACTION_RECORDATORIO = "com.manuel.ayudapadres.RECORDATORIO"
     const val NOCHE_HOUR = 21
     const val ESTOY_BIEN_HOUR = 10
 
@@ -86,6 +93,17 @@ object Alarms {
     fun cancelMed(ctx: Context, id: Int) {
         val am = ctx.getSystemService(AlarmManager::class.java)
         am.cancel(Notif.pendingBroadcast(ctx, Ids.med(id), Intent(ctx, AlarmReceiver::class.java).setAction(ACTION_MED)))
+    }
+
+    fun armReminder(ctx: Context, id: Long, n: Int, fireAt: Long, text: String, at: Long, cuando: String) =
+        arm(ctx, Ids.reminderAlarm(id, n), fireAt,
+            Intent(ctx, AlarmReceiver::class.java).setAction(ACTION_RECORDATORIO)
+                .putExtra("rid", id).putExtra("text", text).putExtra("at", at).putExtra("cuando", cuando),
+            clock = true)
+
+    fun cancelReminder(ctx: Context, id: Long, n: Int) {
+        val am = ctx.getSystemService(AlarmManager::class.java)
+        am.cancel(Notif.pendingBroadcast(ctx, Ids.reminderAlarm(id, n), Intent(ctx, AlarmReceiver::class.java).setAction(ACTION_RECORDATORIO)))
     }
 
     fun scheduleEstoyBien(ctx: Context) =

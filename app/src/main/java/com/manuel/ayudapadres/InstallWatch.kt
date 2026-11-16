@@ -39,6 +39,10 @@ object InstallWatch {
         p.knownApps = current.keys
         for (pkg in nuevas) {
             val label = current[pkg] ?: pkg
+            if (AppCleanup.looksJunk(label) && !AppCleanup.isSystem(ctx, pkg)) {
+                junk(ctx, p, pkg, label)
+                continue
+            }
             val keep = Notif.pendingBroadcast(
                 ctx, Ids.newApp(pkg),
                 Intent(ctx, AlarmReceiver::class.java).setAction(Alarms.ACTION_APP_OK)
@@ -56,5 +60,30 @@ object InstallWatch {
             )
             Cloud.alert(ctx, "warn", "Se instaló “$label”. Le preguntamos si la instaló.")
         }
+    }
+
+    /**
+     * Escudo contra apps basura: si la app nueva tiene nombre de limpiador, VPN, lector de PDF, préstamo…
+     * se ofrece quitarla al momento, con un solo toque, y la voz lo explica.
+     */
+    private fun junk(ctx: Context, p: Prefs, pkg: String, label: String) {
+        val keep = Notif.pendingBroadcast(
+            ctx, Ids.newApp(pkg),
+            Intent(ctx, AlarmReceiver::class.java).setAction(Alarms.ACTION_APP_OK)
+                .putExtra("pkg", pkg).putExtra("label", label)
+        )
+        val remove = Notif.pendingActivity(
+            ctx, Ids.newApp(pkg) + 1,
+            Intent(ctx, MainActivity::class.java).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                .putExtra("uninstall", pkg).putExtra("token", p.intentToken)
+        )
+        Notif.show(
+            ctx, Ids.newApp(pkg), Notif.URGENTE, "🛡️ “$label” parece una app basura",
+            "Estas apps llegan por anuncios, llenan el celular de propaganda y gastan la batería. Toca para quitarla.",
+            tap = remove,
+            actions = listOf("Quitarla" to remove, "La quiero" to keep)
+        )
+        if (Voz.canTalk(ctx)) Speaker.say(ctx, "Se instaló una app que parece basura: $label. Toca el aviso para quitarla.")
+        Cloud.alert(ctx, "warn", "Se instaló “$label” (parece basura: limpiador, VPN, PDF o anuncios). Le ofrecimos quitarla con un toque.")
     }
 }

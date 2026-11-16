@@ -151,11 +151,51 @@ object Cloud {
         }
     }
 
+    /** Aviso escrito por Manuel para este celular: (texto, momento en ms) o null. */
+    fun fetchMessage(ctx: Context): Pair<String, Long>? {
+        val txt = request(ctx, "GET", "devices?select=message,message_at&id=eq." + enc(Prefs(ctx).deviceId)) ?: return null
+        return try {
+            val arr = JSONArray(txt)
+            if (arr.length() == 0) return null
+            val o = arr.getJSONObject(0)
+            if (o.isNull("message") || o.isNull("message_at")) return null
+            o.getString("message") to java.time.OffsetDateTime.parse(o.getString("message_at")).toInstant().toEpochMilli()
+        } catch (e: Exception) {
+            null
+        }
+    }
+
+    /** Recordatorios de este celular que todavía no pasaron (o pasaron hace menos de una hora). */
+    fun fetchReminders(ctx: Context): JSONArray? {
+        val since = java.time.Instant.now().minusSeconds(36 * 3600).toString()
+        val txt = request(ctx, "GET", "reminders?select=id,text,at&device_id=eq." + enc(Prefs(ctx).deviceId) +
+            "&at=gt." + enc(since) + "&order=at.asc&limit=30") ?: return null
+        return try { JSONArray(txt) } catch (e: Exception) { null }
+    }
+
     /** Este celular terminó con el pedido de quitar apps. */
     fun clearRemoveApps(ctx: Context): Boolean =
         reportStatus(ctx, JSONObject().put("remove_apps", JSONArray()))
 
     // ---------- Celular de Manuel ----------
+
+    /** Manuel le manda un aviso escrito (sale en pantalla y la voz lo lee). */
+    fun sendMessage(ctx: Context, deviceId: String, msg: String): Boolean =
+        request(ctx, "POST", "rpc/send_message", JSONObject().put("target_device", deviceId).put("msg", msg).toString()) != null
+
+    /** Recordatorios agendados para ese celular (próximos). */
+    fun reminders(ctx: Context, deviceId: String): JSONArray? {
+        val txt = request(ctx, "GET", "reminders?select=id,text,at&device_id=eq." + enc(deviceId) +
+            "&at=gt." + enc(java.time.Instant.now().minusSeconds(36 * 3600).toString()) + "&order=at.asc&limit=30") ?: return null
+        return try { JSONArray(txt) } catch (e: Exception) { null }
+    }
+
+    fun addReminder(ctx: Context, deviceId: String, text: String, atIso: String): Boolean =
+        request(ctx, "POST", "reminders", JSONObject().put("device_id", deviceId).put("text", text.take(200))
+            .put("at", atIso).put("family_code", Prefs(ctx).familyCode).toString(), "return=minimal") != null
+
+    fun deleteReminder(ctx: Context, id: Long): Boolean =
+        request(ctx, "DELETE", "reminders?id=eq.$id", null, "return=minimal") != null
 
     /** Manuel pide la ubicación actual de ese celular. */
     fun requestLocation(ctx: Context, deviceId: String): Boolean =

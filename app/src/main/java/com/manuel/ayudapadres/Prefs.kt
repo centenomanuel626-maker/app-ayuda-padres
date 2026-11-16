@@ -205,6 +205,37 @@ class Prefs(context: Context) {
         get() = p.getLong("lastLocateReq", 0L)
         set(v) = p.edit().putLong("lastLocateReq", v).apply()
 
+    /** Último aviso de Manuel recibido (momento en ms y texto). */
+    var lastMsgAt: Long
+        get() = p.getLong("lastMsgAt", 0L)
+        set(v) = p.edit().putLong("lastMsgAt", v).apply()
+    var lastMsg: String
+        get() = str("lastMsg")
+        set(v) = putStr("lastMsg", v)
+    var lastMsgDismissed: Boolean
+        get() = p.getBoolean("lastMsgDismissed", false)
+        set(v) = p.edit().putBoolean("lastMsgDismissed", v).apply()
+
+    /** Recordatorios ya programados: "id|momento". */
+    var remindersScheduled: Set<String>
+        get() = strSet("remindersScheduled")
+        set(v) = putSet("remindersScheduled", v)
+
+    /** "momento|batería" del último apagado (se informa al prender). Se guarda con commit: el celular se apaga enseguida. */
+    var lastShutdown: String
+        get() = str("lastShutdown")
+        set(v) { p.edit().putString("lastShutdown", v).commit() }
+
+    /** Día (yyyy-mm-dd) del último resumen de la mañana mandado a Manuel. */
+    var lastSummaryDate: String
+        get() = str("lastSummaryDate")
+        set(v) = putStr("lastSummaryDate", v)
+
+    /** Versión ya descargada y verificada que espera un toque para instalarse. */
+    var updateReady: Int
+        get() = p.getInt("updateReady", 0)
+        set(v) = p.edit().putInt("updateReady", v).apply()
+
     /** Pantalla de inicio impostora ya avisada a Manuel. */
     var lastHomeAlert: String
         get() = str("lastHomeAlert")

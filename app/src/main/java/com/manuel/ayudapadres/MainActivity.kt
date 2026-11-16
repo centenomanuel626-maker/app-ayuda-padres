@@ -263,6 +263,32 @@ class MainActivity : Activity() {
             c.addView(q, full())
         }
 
+        // Aviso escrito de Manuel (se queda hasta tocar "Entendido", máximo un día).
+        if (prefs.lastMsg.isNotEmpty() && !prefs.lastMsgDismissed &&
+            System.currentTimeMillis() - prefs.lastMsgAt < 24 * 60 * 60 * 1000L) {
+            val m = card(Col.AZUL_SUAVE, Col.AZUL)
+            m.addView(text("💬 ${prefs.helperName} te dice:", 18f, true, Col.AZUL))
+            m.addView(text(prefs.lastMsg, 22f, true))
+            val row = hbox(10)
+            row.addView(bigButton("Entendido", Col.AZUL) {
+                prefs.lastMsgDismissed = true
+                showHome()
+            }, LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f))
+            row.addView(bigButton("📞 Llamarlo", Col.BLANCO, Col.TINTA) { acc.run("llamar") },
+                LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f))
+            m.addView(row, full())
+            c.addView(m, full())
+        }
+
+        // Versión nueva ya descargada: un toque para instalarla.
+        if (prefs.updateReady > Updater.current) {
+            val u = card(Col.VERDE_SUAVE, Col.VERDE)
+            u.addView(text("🆕 ${prefs.helperName} te mandó una versión nueva de la app", 19f, true))
+            u.addView(bigButton("Actualizar ahora", Col.VERDE) { acc.run("update") }.also { it.tag = "update" }, full())
+            u.addView(text("Si aparece “¿Actualizar esta app?”, toca “Actualizar”.", 16f, false, Col.GRIS))
+            c.addView(u, full())
+        }
+
         if (DateUtils.isToday(prefs.lastEstoyBien)) {
             val ok = card(Col.VERDE_SUAVE, Col.VERDE)
             ok.tag = "estoybien"
@@ -277,6 +303,9 @@ class MainActivity : Activity() {
             ok.setOnClickListener { acc.run("estoybien") }
             c.addView(ok, full())
         }
+
+        c.addView(rowButton("📹", "Ver a ${prefs.helperName} en video", "Videollamada por WhatsApp", Col.VERDE) { acc.run("video") }
+            .also { it.tag = "home:video" }, full())
 
         val visible = Catalog.cats.filter { it.id !in prefs.hiddenCats }
         var i = 0

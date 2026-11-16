@@ -50,6 +50,11 @@ class AlarmReceiver : BroadcastReceiver() {
                 }.start()
             }
 
+            Alarms.ACTION_RECORDATORIO -> ReminderSync.fire(
+                ctx, intent.getLongExtra("rid", 0), intent.getStringExtra("text") ?: "",
+                intent.getLongExtra("at", 0), intent.getStringExtra("cuando") ?: "Ahora"
+            )
+
             Alarms.ACTION_NOCHE -> {
                 Alarms.scheduleNight(ctx)
                 BatteryCoach.night(ctx)

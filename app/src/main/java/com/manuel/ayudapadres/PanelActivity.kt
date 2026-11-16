@@ -33,6 +33,7 @@ class PanelActivity : Activity() {
 
     override fun onResume() {
         super.onResume()
+        KeepAliveService.start(applicationContext)
         render()
         load()
     }
@@ -317,6 +318,33 @@ class PanelActivity : Activity() {
             box.addView(bigButton("📱 Ver sus apps (${apps.length()}) y elegir cuáles quitar", Col.AZUL) { showApps(d) }, full())
         }
 
+        // ¿Por qué no reporta? (dormido, sin batería, apagado…)
+        val lastMs = millis(d.optString("last_seen"))
+        if (lastMs != null && System.currentTimeMillis() - lastMs > 60 * 60 * 1000L) {
+            val bat0 = d.optInt("battery", -1)
+            val why = when {
+                bat0 in 0..5 && !d.optBoolean("charging") -> "Seguro se quedó sin batería (tenía $bat0 %)."
+                d.optString("model").contains("Xiaomi", true) && d.optString("phone_setup").startsWith("Faltan") ->
+                    "Lo más probable: Xiaomi durmió la app (faltan ajustes de Xiaomi). También puede estar apagado o sin internet."
+                else -> "Puede estar apagado, sin internet o en reposo profundo."
+            }
+            box.addView(text("😴 No reporta desde ${ago(d.optString("last_seen"))}. $why", 15f, false, Col.AMARILLO), full())
+        }
+        val lastOff = d.optString("last_off", "")
+        if (lastOff.isNotEmpty() && lastOff != "null") box.addView(text("🔌 $lastOff", 14f, false, Col.GRIS), full())
+
+        // Aviso escrito.
+        val msg = d.optString("message", "")
+        if (msg.isNotEmpty() && msg != "null") {
+            val seen = d.optString("message_seen_at", "")
+            val estado = if (seen.isNotEmpty() && seen != "null") "✔️ le llegó ${ago(seen)}" else "⏳ todavía no le llega"
+            box.addView(text("💬 Último aviso: “$msg” — $estado", 15f, false, Col.GRIS), full())
+        }
+        val idMsg = d.optString("id")
+        val nameMsg = d.optString("label")
+        box.addView(bigButton("💬 Mandarle un aviso", Col.AZUL) { sendMessage(idMsg, nameMsg) }, full())
+        box.addView(bigButton("📅 Recordatorios y citas", Col.BLANCO, Col.TINTA) { reminders(idMsg, nameMsg) }, full())
+
         // Ubicación a pedido.
         val verNum = d.optString("version").substringAfterLast('.').toIntOrNull() ?: 0
         if (!d.isNull("lat") && !d.isNull("lng") && d.has("lat")) {
@@ -513,6 +541,122 @@ class PanelActivity : Activity() {
                 }.start()
             }
             c.addView(text("WhatsApp, teléfono, cámara, TeamViewer, la Play Store y las que ella o él decidió conservar no aparecen.", 14f, false, Col.GRIS))
+            c.addView(bigButton("Cerrar", Col.BLANCO, Col.TINTA) { dlg.dismiss() }, full())
+        }
+    }
+
+    /** Escribir un aviso: le sale en pantalla y la voz se lo lee (desde la versión 1.0.30). */
+    private fun sendMessage(deviceId: String, name: String) {
+        sheet { c, dlg ->
+            c.addView(heading("Aviso para ${name.lowercase()}"))
+            c.addView(text("Le sale en la pantalla y la voz se lo lee en alto (de 7 a.m. a 10 p.m.). Llega en 2 a 15 minutos.", 15f, false, Col.GRIS))
+            val field = input("Escribe el aviso")
+            c.addView(field, full())
+            for (q in listOf("Pon a cargar el celular 🔋", "Llámame cuando puedas 📞", "¿Estás bien? Toca “Estoy bien” ✅",
+                "Abre la app Ayuda y toca Actualizar 🆕", "No toques los anuncios que dicen “Instalar” ⚠️")) {
+                c.addView(bigButton(q, Col.BLANCO, Col.TINTA) { field.setText(q) }, full())
+            }
+            c.addView(bigButton("Mandar", Col.AZUL) {
+                val t = field.text.toString().trim()
+                if (t.isEmpty()) {
+                    field.error = "Escribe algo"
+                    return@bigButton
+                }
+                Thread {
+                    val ok = Cloud.sendMessage(applicationContext, deviceId, t.take(300))
+                    runOnUiThread {
+                        Toast.makeText(this, if (ok) "Mandado. Aquí verás cuando le llegue." else "No se pudo mandar. Revisa el internet.", Toast.LENGTH_LONG).show()
+                        if (ok) {
+                            dlg.dismiss()
+                            load()
+                        }
+                    }
+                }.start()
+            }, full())
+            c.addView(bigButton("Cancelar", Col.BLANCO, Col.TINTA) { dlg.dismiss() }, full())
+        }
+    }
+
+    /** Citas y recordatorios: le avisa el día antes, una hora antes y a la hora, en voz alta. */
+    private fun reminders(deviceId: String, name: String) {
+        sheet { c, dlg ->
+            c.addView(heading("Recordatorios de ${name.lowercase()}"))
+            c.addView(text("Le aviso el día antes, una hora antes y a la hora, en pantalla y en voz alta. La hora que eliges es la de su país.", 15f, false, Col.GRIS))
+            val list = vbox(8)
+            list.addView(text("Cargando…", 16f, false, Col.GRIS))
+            c.addView(list, full())
+            fun reload() {
+                Thread {
+                    val arr = Cloud.reminders(applicationContext, deviceId)
+                    runOnUiThread {
+                        list.removeAllViews()
+                        if (arr == null) {
+                            list.addView(text("No pude cargar. Revisa el internet.", 16f, false, Col.ROJO))
+                        } else if (arr.length() == 0) {
+                            list.addView(text("No hay recordatorios próximos.", 16f, false, Col.GRIS))
+                        } else for (i in 0 until arr.length()) {
+                            val o = arr.getJSONObject(i)
+                            val at = millis(o.optString("at")) ?: continue
+                            val rid = o.optLong("id")
+                            val row = rowButton("📅", o.optString("text"), ReminderSync.describeWall(at) + " (hora de allá)", Col.VERDE_AZUL, "Borrar", false) {
+                                Thread {
+                                    Cloud.deleteReminder(applicationContext, rid)
+                                    runOnUiThread { reload() }
+                                }.start()
+                            }
+                            list.addView(row, full())
+                        }
+                    }
+                }.start()
+            }
+            reload()
+            c.addView(text("Nuevo recordatorio", 20f, true), full())
+            val what = input("Ej.: Cita con el doctor")
+            c.addView(what, full())
+            val cal = java.util.Calendar.getInstance().apply {
+                add(java.util.Calendar.DAY_OF_MONTH, 1)
+                set(java.util.Calendar.HOUR_OF_DAY, 10)
+                set(java.util.Calendar.MINUTE, 0)
+            }
+            val fmt = java.text.SimpleDateFormat("EEEE d 'de' MMMM, h:mm a", java.util.Locale("es"))
+            val whenBtn = bigButton("🗓️ " + fmt.format(cal.time), Col.BLANCO, Col.TINTA) { }
+            whenBtn.setOnClickListener {
+                android.app.DatePickerDialog(this, { _, y, m, dd ->
+                    cal.set(y, m, dd)
+                    android.app.TimePickerDialog(this, { _, h, min ->
+                        cal.set(java.util.Calendar.HOUR_OF_DAY, h)
+                        cal.set(java.util.Calendar.MINUTE, min)
+                        whenBtn.text = "🗓️ " + fmt.format(cal.time)
+                    }, cal.get(java.util.Calendar.HOUR_OF_DAY), cal.get(java.util.Calendar.MINUTE), false).show()
+                }, cal.get(java.util.Calendar.YEAR), cal.get(java.util.Calendar.MONTH), cal.get(java.util.Calendar.DAY_OF_MONTH)).show()
+            }
+            c.addView(whenBtn, full())
+            c.addView(bigButton("Agendar", Col.VERDE) {
+                val t = what.text.toString().trim()
+                if (t.isEmpty()) {
+                    what.error = "Escribe qué hay que recordar"
+                    return@bigButton
+                }
+                if (cal.timeInMillis < System.currentTimeMillis() - 2 * 60 * 60 * 1000L) {
+                    Toast.makeText(this, "Esa hora ya pasó.", Toast.LENGTH_LONG).show()
+                    return@bigButton
+                }
+                // Hora de reloj (sin zona): 10:00 es 10:00 en su país.
+                val iso = java.time.LocalDateTime.of(
+                    cal.get(java.util.Calendar.YEAR), cal.get(java.util.Calendar.MONTH) + 1, cal.get(java.util.Calendar.DAY_OF_MONTH),
+                    cal.get(java.util.Calendar.HOUR_OF_DAY), cal.get(java.util.Calendar.MINUTE)
+                ).toInstant(java.time.ZoneOffset.UTC).toString()
+                Thread {
+                    val ok = Cloud.addReminder(applicationContext, deviceId, t, iso)
+                    runOnUiThread {
+                        Toast.makeText(this, if (ok) "Agendado. Su celular lo programa en su próximo reporte." else "No se pudo agendar. Revisa el internet.", Toast.LENGTH_LONG).show()
+                        if (ok) {
+                            what.setText("")
+                            reload()
+                        }
+                    }
+                }.start()
+            }, full())
             c.addView(bigButton("Cerrar", Col.BLANCO, Col.TINTA) { dlg.dismiss() }, full())
         }
     }

@@ -11,6 +11,7 @@ import android.media.AudioManager
 import android.net.ConnectivityManager
 import android.net.NetworkCapabilities
 import android.os.BatteryManager
+import org.json.JSONArray
 import org.json.JSONObject
 import java.time.LocalDate
 import java.time.LocalTime
@@ -151,6 +152,10 @@ class ReportJobService : JobService() {
             // ¿Manuel pidió la ubicación?
             LocateRequest.check(ctx)
 
+            // Aviso escrito de Manuel y recordatorios agendados.
+            MessageCheck.check(ctx)
+            ReminderSync.sync(ctx)
+
             // Apps que Manuel pidió quitar.
             Cloud.fetchRemoveApps(ctx)?.let { RemoveRequest.sync(ctx, it) }
 
@@ -159,7 +164,7 @@ class ReportJobService : JobService() {
             if (wanted > Updater.current) Updater.runInBackground(ctx, wanted)
         }
 
-        private fun helperWork(ctx: Context, p: Prefs) {
+        fun helperWork(ctx: Context, p: Prefs) {
             if (!Cloud.configured(ctx)) return
             val alerts = Cloud.alerts(ctx, p.lastAlertId, 20) ?: return
             var maxId = p.lastAlertId
@@ -181,13 +186,18 @@ class ReportJobService : JobService() {
                 }
                 val open = Notif.pendingActivity(ctx, Ids.alert(id),
                     Intent(ctx, PanelActivity::class.java).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))
-                Notif.show(ctx, Ids.alert(id), if (kind == "warn") Notif.AVISOS else Notif.URGENTE, title, a.optString("text"), tap = open)
+                Notif.show(ctx, Ids.alert(id), if (kind == "warn") Notif.AVISOS else Notif.URGENTE, title, a.optString("text"), tap = open,
+                    fullScreen = if (kind == "emergencia") open else null)
             }
             p.lastAlertId = maxId
             p.alertsReady = true
 
-            // Después de las 12:00, avisar una vez si alguien no tocó "Estoy bien" hoy.
-            if (LocalTime.now().hour < 12) return
+            // A las 8: resumen de la mañana.
+            MorningSummary.maybe(ctx, p)
+
+            // Después de las 2 de la tarde, avisar una vez si alguien no tocó "Estoy bien" hoy
+            // (a ellos la app ya se los recordó a las 10).
+            if (LocalTime.now().hour < 14) return
             val today = LocalDate.now().toString()
             val devices = Cloud.devices(ctx) ?: return
             val notified = p.estoyBienNotified.split(',').filter { it.startsWith(today) }.toMutableSet()
@@ -212,5 +222,59 @@ class ReportJobService : JobService() {
             }
             p.estoyBienNotified = notified.joinToString(",")
         }
+    }
+}
+
+
+/** Resumen de la mañana para Manuel: cómo pasaron la noche sus papás, en un solo aviso. */
+object MorningSummary {
+    fun maybe(ctx: Context, p: Prefs) {
+        if (LocalTime.now().hour < 8) return
+        val today = LocalDate.now().toString()
+        if (p.lastSummaryDate == today) return
+        val devices = Cloud.devices(ctx) ?: return
+        val alerts = Cloud.alerts(ctx, 0, 50) ?: JSONArray()
+        val since = System.currentTimeMillis() - 24 * 60 * 60 * 1000L
+        fun ms(iso: String): Long = try { OffsetDateTime.parse(iso).toInstant().toEpochMilli() } catch (e: Exception) { 0L }
+        val lines = ArrayList<String>()
+        var worry = false
+        for (i in 0 until devices.length()) {
+            val d = devices.getJSONObject(i)
+            val name = d.optString("label")
+            val last = ms(d.optString("last_seen"))
+            if (last < since) continue // celulares viejos o de prueba que ya no reportan
+            val mins = (System.currentTimeMillis() - last) / 60000
+            val bat = d.optInt("battery", -1)
+            val charging = d.optBoolean("charging", false)
+            val parts = ArrayList<String>()
+            parts.add(if (bat >= 0) "$bat %" + (if (charging) " cargando" else "") else "sin dato de batería")
+            parts.add(if (mins < 60) "reportó hace $mins min" else "sin reportar hace ${mins / 60} h")
+            if (mins >= 120 || (bat in 0..20 && !charging)) worry = true
+            val installs = (0 until alerts.length()).map { alerts.getJSONObject(it) }.filter {
+                it.optString("device_label") == name && ms(it.optString("created_at")) > since &&
+                    it.optString("text").startsWith("Se instaló")
+            }
+            if (installs.isNotEmpty()) {
+                parts.add("${installs.size} app(s) nuevas")
+                worry = true
+            }
+            val urgent = (0 until alerts.length()).map { alerts.getJSONObject(it) }.count {
+                it.optString("device_label") == name && ms(it.optString("created_at")) > since &&
+                    (it.optString("kind") == "emergencia" || it.optString("kind") == "bad")
+            }
+            if (urgent > 0) {
+                parts.add("$urgent aviso(s) importantes")
+                worry = true
+            }
+            lines.add("$name: " + parts.joinToString(" · "))
+        }
+        if (lines.isEmpty()) return
+        p.lastSummaryDate = today
+        Notif.show(
+            ctx, Ids.RESUMEN, Notif.AVISOS,
+            if (worry) "☀️ Buenos días — revisa algo" else "☀️ Buenos días — todo en orden",
+            lines.joinToString("\n"),
+            tap = Notif.pendingActivity(ctx, Ids.RESUMEN, Intent(ctx, PanelActivity::class.java).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))
+        )
     }
 }

@@ -27,6 +27,10 @@ object Updater {
 
     val current: Int get() = BuildConfig.VERSION_CODE
 
+    /** Por qué falló el último intento (se manda en la alerta para poder arreglarlo). */
+    @Volatile
+    var lastError: String = ""
+
     private fun get(url: String): String? = try {
         val c = URL(url).openConnection() as HttpURLConnection
         c.connectTimeout = 10000
@@ -66,21 +70,31 @@ object Updater {
                 c.readTimeout = 60000
                 val status = c.responseCode
                 if (status in 300..399) {
-                    val next = c.getHeaderField("Location") ?: return null
+                    val next = c.getHeaderField("Location")
                     c.disconnect()
-                    if (!next.startsWith("https://")) return null
+                    if (next == null || !next.startsWith("https://")) {
+                        lastError = "redirección inválida"
+                        return null
+                    }
                     url = URL(next)
                 } else if (status in 200..299) {
                     c.inputStream.use { input -> out.outputStream().use { input.copyTo(it) } }
                     c.disconnect()
-                    return if (out.length() > 100_000) out else null
+                    if (out.length() <= 100_000) {
+                        lastError = "archivo incompleto (${out.length() / 1024} KB)"
+                        return null
+                    }
+                    return out
                 } else {
+                    lastError = "el servidor respondió $status (${url.host})"
                     c.disconnect()
                     return null
                 }
             }
+            lastError = "demasiadas redirecciones"
             null
         } catch (e: Exception) {
+            lastError = "sin conexión o se cortó la descarga (" + e.javaClass.simpleName + ")"
             null
         }
     }
@@ -91,24 +105,31 @@ object Updater {
         val pm = ctx.packageManager
         return try {
             val flags = if (Build.VERSION.SDK_INT >= 28) PackageManager.GET_SIGNING_CERTIFICATES else PackageManager.GET_SIGNATURES
-            val info: PackageInfo = pm.getPackageArchiveInfo(apk.path, flags) ?: return false
-            if (info.packageName != ctx.packageName) return false
+            val info: PackageInfo = pm.getPackageArchiveInfo(apk.path, flags)
+                ?: return false.also { lastError = "el archivo no se pudo leer" }
+            if (info.packageName != ctx.packageName) return false.also { lastError = "no es esta app" }
             val newCode = if (Build.VERSION.SDK_INT >= 28) info.longVersionCode else info.versionCode.toLong()
-            if (newCode <= current) return false
+            if (newCode <= current) return false.also { lastError = "no es más nueva" }
             val mine = pm.getPackageInfo(ctx.packageName, flags)
             if (Build.VERSION.SDK_INT >= 28) {
-                val a = info.signingInfo?.apkContentsSigners ?: return false
-                val b = mine.signingInfo?.apkContentsSigners ?: return false
-                a.isNotEmpty() && a.map { it.toCharsString() }.toSet() == b.map { it.toCharsString() }.toSet()
+                val a = info.signingInfo?.apkContentsSigners ?: return false.also { lastError = "no trae firma" }
+                val b = mine.signingInfo?.apkContentsSigners ?: return false.also { lastError = "no pude leer mi firma" }
+                (a.isNotEmpty() && a.map { it.toCharsString() }.toSet() == b.map { it.toCharsString() }.toSet())
+                    .also { if (!it) lastError = "firma distinta" }
             } else {
                 val a = info.signatures ?: return false
                 val b = mine.signatures ?: return false
                 a.map { it.toCharsString() }.toSet() == b.map { it.toCharsString() }.toSet()
             }
         } catch (e: Exception) {
+            lastError = "error al revisar el archivo (" + e.javaClass.simpleName + ")"
             false
         }
     }
+
+    /** El archivo ya descargado de esa versión, si sigue ahí. */
+    private fun cached(ctx: Context, code: Int): File? =
+        File(File(ctx.cacheDir, "updates"), "app-$code.apk").takeIf { it.exists() && it.length() > 100_000 }
 
     /** ¿Puede instalarse sin que nadie toque nada? (Android 12+ y la app ya se instaló a sí misma). */
     @Suppress("DEPRECATION")
@@ -131,6 +152,10 @@ object Updater {
         params.setAppPackageName(ctx.packageName)
         if (Build.VERSION.SDK_INT >= 31) {
             params.setRequireUserAction(PackageInstaller.SessionParams.USER_ACTION_NOT_REQUIRED)
+        }
+        // Android 14+: que las próximas actualizaciones solo las pueda hacer esta app (sin pedir permiso a otra tienda).
+        if (Build.VERSION.SDK_INT >= 34) {
+            try { params.setRequestUpdateOwnership(true) } catch (e: Exception) { }
         }
         val id = installer.createSession(params)
         installer.openSession(id).use { session ->
@@ -197,13 +222,22 @@ object Updater {
      */
     fun runInBackground(ctx: Context, target: Int) {
         val p = Prefs(ctx)
-        if (target <= current) return
-        // Un intento por hora como máximo, para no gastar datos si algo falla.
-        if (System.currentTimeMillis() - p.lastUpdateTry < 60 * 60 * 1000L) return
-        p.lastUpdateTry = System.currentTimeMillis()
-        val apk = download(ctx, target)
+        if (target <= current) {
+            if (p.updateReady != 0) p.updateReady = 0
+            return
+        }
+        val now = System.currentTimeMillis()
+        val ready = p.updateReady == target && cached(ctx, target) != null
+        // Ya descargada y esperando el toque: solo se recuerda cada 3 horas, sin volver a bajarla.
+        if (ready && now - p.lastUpdateTry < 3 * 60 * 60 * 1000L) return
+        // Si no está descargada: un intento por hora (si el último falló, se reintenta a los 15 minutos).
+        if (!ready && now - p.lastUpdateTry < 60 * 60 * 1000L) return
+        p.lastUpdateTry = now
+        val apk = if (ready) cached(ctx, target) else download(ctx, target)
         if (apk == null || !verify(ctx, apk)) {
-            Cloud.alert(ctx, "warn", "No se pudo descargar o verificar la versión 1.0.$target.")
+            p.updateReady = 0
+            p.lastUpdateTry = now - 45 * 60 * 1000L
+            Cloud.alert(ctx, "warn", "No se pudo descargar o verificar la versión 1.0.$target: $lastError. Lo vuelvo a intentar en 15 minutos.")
             return
         }
         if (canSilent(ctx) && allowedToInstall(ctx)) {
@@ -214,15 +248,37 @@ object Updater {
                 CrashLog.save(ctx, e, "actualización en segundo plano")
             }
         }
-        // Hace falta un toque: aviso que abre la app y termina la actualización.
+        // Hace falta un toque: aviso grande, tarjeta en la pantalla principal y voz.
+        p.updateReady = target
         val open = Notif.pendingActivity(
             ctx, NOTIF_ID,
             Intent(ctx, MainActivity::class.java).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
                 .putExtra("run", "update").putExtra("token", p.intentToken)
         )
-        Notif.show(ctx, NOTIF_ID, Notif.AVISOS, "Hay una versión nueva de la app",
-            "${p.helperName} la mandó. Toca aquí y después toca “Actualizar”.", tap = open,
+        Notif.show(ctx, NOTIF_ID, Notif.URGENTE, "🆕 Toca para actualizar la app",
+            "${p.helperName} mandó una versión nueva. Toca aquí y después toca “Actualizar”. Es solo un momento.", tap = open,
             actions = listOf("Actualizar" to open))
+        if (Voz.canTalk(ctx, 9, 21)) Speaker.say(ctx, "Hay una versión nueva de la app de ayuda. Toca el aviso y después toca Actualizar.")
+    }
+
+    /** Instala la versión ya descargada (desde la tarjeta o el aviso), o la descarga si hace falta. */
+    fun installReady(a: android.app.Activity, say: (String, String) -> Unit) {
+        val ctx = a.applicationContext
+        val p = Prefs(ctx)
+        val apk = cached(ctx, p.updateReady)
+        if (apk == null || p.updateReady <= current || !allowedToInstall(ctx)) {
+            interactive(a, say)
+            return
+        }
+        say("Si aparece “¿Actualizar esta app?”, toca “Actualizar”.", "info")
+        Thread {
+            try {
+                if (verify(ctx, apk)) install(ctx, apk) else a.runOnUiThread { interactive(a, say) }
+            } catch (e: Exception) {
+                CrashLog.save(ctx, e, "instalar la versión descargada")
+                a.runOnUiThread { say("No se pudo instalar. Intenta más tarde.", "warn") }
+            }
+        }.start()
     }
 }
 
@@ -244,7 +300,10 @@ class UpdateReceiver : BroadcastReceiver() {
                         tap = PendingIntent.getActivity(ctx, 6001, confirm, PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE))
                 }
             }
-            PackageInstaller.STATUS_SUCCESS -> Notif.cancel(ctx, 6000)
+            PackageInstaller.STATUS_SUCCESS -> {
+                Notif.cancel(ctx, 6000)
+                Prefs(ctx).updateReady = 0
+            }
             else -> {
                 val msg = intent.getStringExtra(PackageInstaller.EXTRA_STATUS_MESSAGE) ?: "código $status"
                 val pending = goAsync()

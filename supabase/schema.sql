@@ -291,3 +291,32 @@ returns void language sql security invoker set search_path = public as $$
 $$;
 revoke execute on function public.request_location(text) from public;
 grant execute on function public.request_location(text) to anon;
+
+-- Avisos de Manuel y recordatorios (migración avisos_recordatorios).
+alter table public.devices add column if not exists message text;
+alter table public.devices add column if not exists message_at timestamptz;
+alter table public.devices add column if not exists message_seen_at timestamptz;
+alter table public.devices add column if not exists last_off text;
+alter table public.devices add constraint devices_msg_len check (length(coalesce(message,'')) <= 300 and length(coalesce(last_off,'')) <= 200);
+create or replace function public.send_message(target_device text, msg text)
+returns void language sql security invoker set search_path = public as $$
+  update public.devices set message = left(msg, 300), message_at = now(), message_seen_at = null
+   where id = target_device and family_code = public.request_family_code() and length(trim(msg)) > 0;
+$$;
+revoke execute on function public.send_message(text, text) from public;
+grant execute on function public.send_message(text, text) to anon;
+create table if not exists public.reminders (
+  id bigserial primary key,
+  family_code text not null default public.request_family_code(),
+  device_id text not null,
+  text text not null check (length(text) between 1 and 200),
+  at timestamptz not null,
+  created_at timestamptz not null default now()
+);
+alter table public.reminders enable row level security;
+create policy reminders_family on public.reminders for all to anon
+  using (family_code = public.request_family_code())
+  with check (family_code = public.request_family_code());
+revoke all on public.reminders from anon, authenticated;
+grant select, insert, delete on public.reminders to anon;
+grant usage, select on sequence public.reminders_id_seq to anon;

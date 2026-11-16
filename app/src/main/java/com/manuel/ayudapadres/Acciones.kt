@@ -91,7 +91,7 @@ class Acciones(private val a: MainActivity) {
             }
             "nointernet" -> a.showDiag()
             "web" -> a.showWebProtection()
-            "update" -> Updater.interactive(a) { msg, kind -> a.say(msg, kind) }
+            "update" -> Updater.installReady(a) { msg, kind -> a.say(msg, kind) }
             "bluetooth" -> {
                 guide("Prende el interruptor y toca el nombre de tus audífonos o del carro.")
                 open(Intent(Settings.ACTION_BLUETOOTH_SETTINGS))

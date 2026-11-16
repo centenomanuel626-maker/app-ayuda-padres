@@ -23,6 +23,7 @@ object Col {
     val GRIS = 0xFF4B5B69.toInt()
     val LINEA = 0xFFCAD4DC.toInt()
     val AZUL = 0xFF1D5BB8.toInt()
+    val AZUL_SUAVE = 0xFFDCE8F8.toInt()
     val MORADO = 0xFF6A3D9A.toInt()
     val VERDE_AZUL = 0xFF0D6B6B.toInt()
     val NARANJA = 0xFFA3500A.toInt()
